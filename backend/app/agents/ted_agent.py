@@ -4,8 +4,8 @@ TED Agent - Main conversational agent for tender searches.
 An Agno agent that helps users find and analyze EU tender opportunities.
 """
 
-from typing import Optional, Dict, List, AsyncIterator
-from agno.agent import Agent, RunEvent
+from typing import Optional, Dict, List
+from agno.agent import Agent
 from agno.models.ollama import Ollama
 from loguru import logger
 from datetime import datetime, timedelta
@@ -199,9 +199,25 @@ class TEDAgent:
         
         logger.info(f"TED Agent initialized with model: {settings.ollama_chat_model}")
     
+    def _build_message(self, message: str, session_id: Optional[str] = None) -> str:
+        """Build the full message with conversation context if session exists."""
+        _clean_old_sessions()
+        
+        if session_id:
+            context = _get_conversation_context(session_id)
+            if context:
+                full_message = f"{context}\n\nUser's current message: {message}"
+                logger.info(f"Added conversation context ({len(context)} chars)")
+            else:
+                full_message = message
+            _add_to_history(session_id, "user", message)
+        else:
+            full_message = message
+        return full_message
+    
     async def run(self, message: str, session_id: Optional[str] = None) -> str:
         """
-        Run the agent with a user message.
+        Run the agent with a user message (non-streaming).
         
         Args:
             message: User's message/question
@@ -216,20 +232,7 @@ class TEDAgent:
             # Clean old sessions periodically
             _clean_old_sessions()
             
-            # Build message with conversation context if session exists
-            if session_id:
-                context = _get_conversation_context(session_id)
-                if context:
-                    # Prepend context to the message
-                    full_message = f"{context}\n\nUser's current message: {message}"
-                    logger.info(f"Added conversation context ({len(context)} chars)")
-                else:
-                    full_message = message
-                
-                # Store user message in history
-                _add_to_history(session_id, "user", message)
-            else:
-                full_message = message
+            full_message = self._build_message(message, session_id)
             
             # Run agent with message
             response = await self.agent.arun(
@@ -261,64 +264,27 @@ class TEDAgent:
             logger.error(f"Error running TED agent: {str(e)}", exc_info=True)
             return f"I apologize, but I encountered an error while processing your request: {str(e)}\n\nPlease try rephrasing your question or contact support if the issue persists."
     
-    async def run_stream(self, message: str, session_id: Optional[str] = None) -> AsyncIterator[str]:
+    async def run_stream(self, message: str, session_id: Optional[str] = None):
         """
-        Run the agent with streaming response.
+        Run the agent with streaming, yielding RunResponse objects.
         
         Args:
             message: User's message/question
             session_id: Optional session ID for conversation continuity
             
         Yields:
-            Chunks of the agent's response as they are generated
+            RunResponse objects from the Agno agent stream
         """
-        try:
-            logger.info(f"Agent received streaming request: '{message}' (session: {session_id or 'new'})")
-            
-            # Clean old sessions periodically
-            _clean_old_sessions()
-            
-            # Build message with conversation context if session exists
-            if session_id:
-                context = _get_conversation_context(session_id)
-                if context:
-                    full_message = f"{context}\n\nUser's current message: {message}"
-                    logger.info(f"Added conversation context ({len(context)} chars)")
-                else:
-                    full_message = message
-                
-                # Store user message in history
-                _add_to_history(session_id, "user", message)
-            else:
-                full_message = message
-            
-            # Run agent with streaming enabled
-            complete_response = []
-            
-            stream = await self.agent.arun(
-                full_message, 
-                stream=True
-            )
-            
-            # Process each chunk from the stream
-            async for chunk in stream:
-                # Extract content from the chunk based on event type
-                if chunk.event == RunEvent.run_content:
-                    content = chunk.content
-                    if content:
-                        complete_response.append(content)
-                        yield content
-                        
-            # Store complete assistant response in history
-            if session_id and complete_response:
-                full_response = "".join(complete_response)
-                _add_to_history(session_id, "assistant", full_response)
-                logger.info(f"Streaming complete. Total response length: {len(full_response)} characters")
-                
-        except Exception as e:
-            logger.error(f"Error in streaming TED agent: {str(e)}", exc_info=True)
-            error_msg = f"I apologize, but I encountered an error while processing your request: {str(e)}\n\nPlease try rephrasing your question or contact support if the issue persists."
-            yield error_msg
+        logger.info(f"Agent stream received message: '{message}' (session: {session_id or 'new'})")
+        
+        full_message = self._build_message(message, session_id)
+        
+        async for event in await self.agent.arun(
+            full_message,
+            stream=True,
+            stream_intermediate_steps=True,
+        ):
+            yield event
     
     def run_sync(self, message: str, session_id: Optional[str] = None) -> str:
         """

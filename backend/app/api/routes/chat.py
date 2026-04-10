@@ -5,11 +5,9 @@ Uses Agno agent with TED API search tool for intelligent tender discovery.
 """
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional
 from loguru import logger
-import json
 
 from app.agents.ted_agent import get_ted_agent
 
@@ -21,7 +19,6 @@ class ChatMessage(BaseModel):
     """Simple chat message for the new streamlined interface."""
     message: str = Field(..., description="User's message", min_length=1, max_length=1000)
     session_id: Optional[str] = Field(None, description="Session ID for conversation continuity")
-    stream: bool = Field(False, description="Enable streaming response")
 
 
 class ChatResponse(BaseModel):
@@ -31,13 +28,11 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/chat")
-async def chat(request: ChatMessage):
+async def chat(request: ChatMessage) -> ChatResponse:
     """
     Chat with the TED agent - ask questions in natural language.
     
     The agent uses the TED API search tool to find tender notices based on your query.
-    
-    Set `stream=true` in the request to get a streaming response (Server-Sent Events).
     
     Example queries:
     - "Find software development contracts in Germany"
@@ -53,41 +48,12 @@ async def chat(request: ChatMessage):
     4. Return formatted results with tender details
     """
     try:
-        logger.info(f"Chat request: '{request.message[:100]}...' (session: {request.session_id or 'new'}, stream: {request.stream})")
+        logger.info(f"Chat request: '{request.message[:100]}...' (session: {request.session_id or 'new'})")
         
         # Get agent instance
         agent = get_ted_agent()
         
-        # Return streaming response if requested
-        if request.stream:
-            async def event_generator():
-                """Generate Server-Sent Events for streaming response."""
-                try:
-                    async for chunk in agent.run_stream(
-                        message=request.message,
-                        session_id=request.session_id
-                    ):
-                        # Format as Server-Sent Event
-                        yield f"data: {json.dumps({'content': chunk})}\n\n"
-                    
-                    # Send completion event
-                    yield f"data: {json.dumps({'event': 'done'})}\n\n"
-                    
-                except Exception as e:
-                    logger.error(f"Error in stream generator: {str(e)}", exc_info=True)
-                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
-            
-            return StreamingResponse(
-                event_generator(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no"  # Disable buffering in nginx
-                }
-            )
-        
-        # Non-streaming response
+        # Run agent with user message
         response = await agent.run(
             message=request.message,
             session_id=request.session_id

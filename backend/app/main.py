@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.logging import log
-from app.api.routes import search, chat, subscriptions, health
+from app.api.routes import search, chat, subscriptions, health, agentos
 
 
 @asynccontextmanager
@@ -47,6 +47,9 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(search.router, prefix="/api/v1", tags=["search"])
 app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
 app.include_router(subscriptions.router, prefix="/api/v1", tags=["subscriptions"])
+
+# AgentOS API for agent-ui frontend
+app.include_router(agentos.router, tags=["agentos"])
 
 
 @app.get("/")

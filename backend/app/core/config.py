@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = "../.env"  # Look for .env in parent directory
         case_sensitive = False
+        extra = "ignore"  # Ignore extra fields (like frontend env vars)
     
     @property
     def cors_origins_list(self) -> List[str]:

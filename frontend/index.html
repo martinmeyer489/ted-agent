@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TED Bot - European Tender Search</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🇪🇺 TED Bot</h1>
+            <p>AI-Powered European Tender Discovery</p>
+            <button onclick="clearSession()" class="btn-secondary" title="Start a new conversation">🔄 New Conversation</button>
+        </header>
+
+        <main>
+            <!-- Chat Section -->
+            <section class="chat-section">
+                <div id="chatMessages" class="chat-messages"></div>
+                
+                <form id="chatForm" onsubmit="return false;">
+                    <div class="chat-input-group">
+                        <input 
+                            type="text" 
+                            id="chatInput" 
+                            name="chatInput" 
+                            placeholder="Ask about tenders, procedures, or get help..."
+                            autocomplete="off"
+                            required
+                        >
+                        <button type="submit" class="btn-primary">Send</button>
+                    </div>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -3,6 +3,11 @@ export const constructEndpointUrl = (
 ): string => {
   if (!value) return ''
 
+  // Handle relative paths (like /api/proxy)
+  if (value.startsWith('/')) {
+    return value
+  }
+
   if (value.startsWith('http://') || value.startsWith('https://')) {
     return decodeURIComponent(value)
   }

@@ -1,103 +1,91 @@
-# TED Bot - Intelligent Tender Notice Agent
+# TED Bot 🤖
 
-**🎉 STATUS: FULLY FUNCTIONAL WITH MODERN UI ✅**
+> A hobby project: AI-powered chat interface for searching EU tender opportunities
 
-> An AI-powered agent system with a modern chat interface for searching EU tender opportunities!
+## What It Does
 
-An AI-powered agent system for retrieving, analyzing, and monitoring public procurement notices from the TED (Tenders Electronic Daily) platform.
+Search and chat with EU public procurement data (TED - Tenders Electronic Daily) using natural language. Ask questions like "Find software tenders in Germany" and get results in a nice table that you can filter and sort by talking to the agent.
 
-## 🚀 Quick Start
+## Quick Start
 
-### Option 1: Start Everything (Recommended)
-
-```bash
-# Install dependencies and start both backend + frontend
-chmod +x start.sh
-./start.sh
-```
-
-This will start:
-- **Backend API** at http://localhost:8000
-- **Frontend UI** at http://localhost:3000
-
-### Option 2: Start Services Separately
-
-**Backend:**
+**Start backend:**
 ```bash
 cd backend
 poetry install
 poetry run uvicorn app.main:app --reload --port 8000
 ```
 
-**Frontend:**
+**Start frontend (in another terminal):**
 ```bash
-cd frontend/agent-ui
+cd frontend
 pnpm install
 pnpm dev
 ```
 
-### Testing the API
+Then open http://localhost:3000
 
-```bash
-# Test the chat endpoint
-poetry run python test_api.py
+## Features
 
-# Open interactive API docs
-open http://localhost:8000/docs
-```
+- 💬 Chat interface for natural language tender search
+- 📊 Interactive workspace table that updates based on your questions
+- 🔧 Multiple tools: TED API search, SPARQL queries, and notice details
+- 📝 Session history to continue conversations
+- 🎨 Clean, modern UI built with Next.js and shadcn/ui
 
-## Overview
+## Tech Stack
 
-TED Bot is an intelligent agent built with Agno framework that helps users discover and analyze public procurement opportunities from the European Union's central tender platform. The system provides conversational access to tender data, automated monitoring, and intelligent analysis capabilities.
-
-## Key Features
-
-- 🤖 **Modern Chat Interface**: Beautiful, responsive UI built with Next.js and Tailwind CSS
-- 💬 **Conversational Interface**: Natural language queries to search and analyze tenders
-- 🔍 **Semantic Search**: Vector-based search for finding relevant opportunities
-- 🛠️ **Tool Visualization**: See when the agent uses search tools in real-time
-- 📊 **Session Management**: Maintains conversation history across sessions
-- 📝 **Document Analysis**: AI-powered summarization of tender documents
-- 🔔 **Smart Notifications**: Alerts for matching tenders based on preferences
-- 📈 **Insights & Reports**: Generate reports and insights from tender data
-
-## Technology Stack
-
-- **Frontend UI**: Next.js, TypeScript, Tailwind CSS, shadcn/ui
-- **Database**: Supabase (PostgreSQL + pgvector)
-- **LLM**: Ollama Cloud (hosted models)
-- **Deployment**: Vercel (frontend), Railway/Render (backendodels)
-- **Frontend**: Simple HTML/JavaScript chat interface
-- **Deployment**: Vercel (primary)
+- **Backend**: FastAPI + Agno agent framework + Python 3.11+
+- **Frontend**: Next.js 15 + TypeScript + Tailwind CSS
+- **LLM**: Ollama (local or cloud)
+- **Database**: Supabase (PostgreSQL - optional for persistence)
+- **Deployment**: Vercel
 
 ## Project Structure
 
-This is a monorepo containing both frontend and backend:
-
 ```
 ted-bot/
-├── docs/                    # Comprehensive documentation
-├── backend/                 # FastAPI application
+├── backend/           # FastAPI + Agno agent
 │   ├── app/
-│   │   ├── agents/         # Agno agent implementations
-│   │   ├── api/            # API routes (including AgentOS API)
-│   │   ├── models/         # Data models
-│   │   ├── services/       # Business logic
-│   │   └── core/           # Configuration
-│   └── tests/
-├── frontend/
-│   └── agent-ui/           # Modern Next.js chat interface
-└── scripts/                 # Utility scripts
+│   │   ├── agents/   # TED agent + tools
+│   │   ├── api/      # Routes
+│   │   ├── services/ # TED API client, Supabase, etc.
+│   │   └── core/     # Config
+│   └── requirements.txt
+├── frontend/         # Next.js UI
+│   └── src/
+│       ├── components/
+│       ├── app/
+│       └── hooks/
+└── docs/            # Architecture and specs
 ```
 
 ## Documentation
 
-Detailed documentation is available in the `/docs` directory:
+- [Backend README](backend/README.md) - Backend setup and API details
+- [Frontend README](frontend/README.md) - Frontend setup and components
+- [Architecture](docs/architecture.md) - System design
+- [Database Schema](docs/database-schema.md) - Data models
+- [Workspace Panel](docs/workspace-panel-spec.md) - Table feature spec
 
-- [Requirements](docs/requirements.md) - Detailed functional and non-functional requirements
-- [Architecture](docs/architecture.md) - System architecture and design decisions
-- [API Specification](docs/api-specification.md) - FastAPI endpoints and contracts
-- [Database Schema](docs/database-schema.md) - Supabase schema and data model
+## Environment Variables
+
+Create `.env` in the project root:
+
+```bash
+# Required
+TED_API_KEY=your-ted-api-key
+OLLAMA_API_URL=http://localhost:11434  # or Ollama Cloud URL
+OLLAMA_API_KEY=your-key  # if using Ollama Cloud
+OLLAMA_CHAT_MODEL=llama3.1
+
+# Optional (for persistence)
+SUPABASE_URL=your-supabase-url
+SUPABASE_KEY=your-supabase-key
+```
+
+## License
+
+MIT - This is a hobby project, use it however you like!
 - [Agent Design](docs/agent-design.md) - Agno agent architecture and workflows
 - [Tech Stack](docs/tech-stack.md) - Technology choices and rationale
 - [Deployment](docs/deployment.md) - Deployment guide for Vercel and Docker
@@ -136,11 +124,7 @@ The backend provides two API interfaces:
 - **GET /sessions/{id}/runs** - Get session history
 - **DELETE /sessions/{id}** - Delete session
 
-### Legacy API (deprecated)
 
-- **POST /api/v1/chat** - Simple chat endpoint
-- **GET /api/v1/search** - Direct TED search
-- **GET /api/v1/health** - Health check
 
 ## Getting Started
 

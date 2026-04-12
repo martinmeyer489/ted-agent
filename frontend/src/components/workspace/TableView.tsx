@@ -50,21 +50,21 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
     typeof v === 'string' && (v.startsWith('http://') || v.startsWith('https://'))
 
   return (
-    <div className="overflow-auto flex-1 bg-[#0a0a0c]">
+    <div className="flex-1 overflow-x-auto bg-background">
       <table className="w-full text-sm border-collapse">
-        <thead className="sticky top-0 z-10">
+        <thead>
           <tr>
-            <th className="bg-[#1a1a22] px-2 py-2.5 text-center text-xs font-semibold text-blue-300/80 uppercase tracking-wider border-b border-gray-600/50 w-10">
+            <th className="sticky top-0 z-10 bg-background px-3 py-2 text-center text-xs font-medium text-muted-foreground uppercase tracking-wide border-b w-10">
               ★
             </th>
             {table.columns.map((col) => (
               <th
                 key={col.key}
                 onClick={() => handleSort(col.key)}
-                className="bg-[#1a1a22] px-3 py-2.5 text-left text-xs font-semibold text-blue-300/80 uppercase tracking-wider border-b border-gray-600/50 cursor-pointer select-none whitespace-nowrap hover:bg-[#22222e] transition-colors"
+                className="sticky top-0 z-10 bg-background px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide border-b cursor-pointer select-none whitespace-nowrap hover:bg-muted/30 transition-colors"
               >
                 {col.label}
-                <span className="text-blue-400/60">{sortIndicator(col.key)}</span>
+                <span className="opacity-60">{sortIndicator(col.key)}</span>
               </th>
             ))}
           </tr>
@@ -73,15 +73,15 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
           {sortedRows.map((row, ri) => (
             <tr
               key={ri}
-              className="hover:bg-blue-900/10 transition-colors border-b border-gray-800/40 even:bg-white/[0.015]"
+              className="hover:bg-muted/50 transition-colors border-b"
             >
-              <td className="px-2 py-2 text-center">
+              <td className="px-3 py-2 text-center">
                 <button
                   onClick={() => toggleSavedTender(row)}
-                  className={`text-lg transition-colors ${
+                  className={`text-base transition-colors ${
                     isSaved(row)
                       ? 'text-yellow-400 hover:text-yellow-300'
-                      : 'text-gray-600 hover:text-yellow-400/70'
+                      : 'text-muted-foreground/40 hover:text-yellow-400/70'
                   }`}
                   title={isSaved(row) ? 'Remove from saved' : 'Save tender'}
                 >
@@ -93,7 +93,7 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
                 return (
                   <td
                     key={col.key}
-                    className="px-3 py-2 max-w-[300px] truncate text-gray-300"
+                    className="px-3 py-2 text-sm"
                     title={String(val ?? '')}
                   >
                     {isUrl(val) ? (
@@ -101,12 +101,15 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
                         href={val}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 underline"
+                        className="text-primary hover:text-primary/80 underline truncate max-w-[200px] inline-block"
+                        title={val}
                       >
                         View ↗
                       </a>
                     ) : (
-                      String(val ?? '')
+                      <span className="truncate max-w-[200px] inline-block" title={String(val ?? '')}>
+                        {String(val ?? '')}
+                      </span>
                     )}
                   </td>
                 )

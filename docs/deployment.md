@@ -1,103 +1,142 @@
 # Deployment Guide
 
-## Overview
-
-This guide covers deploying TED Bot to:
-1. **Vercel** (recommended for frontend + serverless backend)
-2. **Docker** (fallback for full-stack deployment)
-3. **Local Development** (for testing)
+Quick guide for deploying TED Bot to production.
 
 ## Prerequisites
 
-### Required Accounts & Services
+- GitHub repository with your code
+- TED API key
+- Ollama setup (local or cloud)
+- Vercel account (for easy deployment)
 
-- [ ] GitHub account (for code repository)
-- [ ] Supabase account and project created
-- [ ] TED API credentials
-- [ ] Ollama Cloud account and API key
-- [ ] Vercel account (for Vercel deployment) OR
-- [ ] Docker installed (for Docker deployment)
+## Environment Variables
 
-### Required Software (Local Development)
-
-- Python 3.11+
-- Poetry (or pip)
-- Git
-- Node.js 18+ (for Vercel CLI)
-
----
-
-## 1. Local Development Setup
-
-### Step 1.1: Clone Repository
+You'll need these environment variables in production:
 
 ```bash
-git clone https://github.com/your-username/ted-bot.git
-cd ted-bot
-```
-
-### Step 1.2: Install Python Dependencies
-
-Using Poetry (recommended):
-```bash
-poetry install
-poetry shell
-```
-
-Or using pip:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Step 1.3: Setup Environment Variables
-
-Create `.env` file in project root:
-
-```bash
-# .env
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-anon-key
-
-# Ollama Cloud
-OLLAMA_API_URL=https://api.ollama.cloud
-OLLAMA_API_KEY=your-ollama-cloud-api-key
-OLLAMA_CHAT_MODEL=llama3.1
-OLLAMA_EMBED_MODEL=nomic-embed-text
-
-# TED API
-TED_API_URL=https://api.ted.europa.eu/v3
+# Required
 TED_API_KEY=your-ted-api-key
+OLLAMA_API_URL=http://localhost:11434  # or Ollama Cloud URL
+OLLAMA_CHAT_MODEL=llama3.1
 
-# App
-ENVIRONMENT=development
-LOG_LEVEL=DEBUG
-CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+# Optional
+OLLAMA_API_KEY=your-key  # if using Ollama Cloud
+SUPABASE_URL=your-url    # if using Supabase
+SUPABASE_KEY=your-key    
 ```
 
-### Step 1.4: Setup Supabase Database
+## Deployment to Vercel (Recommended)
 
-Run database migrations:
+Vercel can host both the frontend and backend.
+
+### 1. Install Vercel CLI
 
 ```bash
-# Using Supabase SQL Editor (web UI):
-# 1. Go to Supabase Dashboard > SQL Editor
-# 2. Copy contents of database/schema.sql
-# 3. Execute
-
-# Or using supabase CLI (if installed):
-supabase db push
+npm i -g vercel
 ```
 
-### Step 1.5: Configure Ollama Cloud
-
-No local installation needed! Verify your Ollama Cloud API access:
+### 2. Deploy
 
 ```bash
-# Test API connection
-curl -X POST "$OLLAMA_API_URL/api/chat" \
+cd ted-bot
+vercel
+```
+
+Follow the prompts:
+- Link to your GitHub repo
+- Set root directory to your project
+- Add environment variables in Vercel dashboard
+
+### 3. Configure Backend
+
+Vercel will detect Next.js automatically. For the FastAPI backend, you may need to:
+
+- Add `api/` folder in root with serverless functions, OR
+- Deploy backend separately to Render/Railway/Fly.io
+
+**Option A: Separate Backend Deployment**
+
+1. Deploy backend to Render/Railway:
+   ```bash
+   # Render will auto-detect your Dockerfile
+   # Or use their Python buildpack
+   ```
+
+2. Update frontend `.env.local`:
+   ```bash
+   NEXT_PUBLIC_AGENTOS_URL=https://your-backend.onrender.com
+   ```
+
+## Alternative: Docker Deployment
+
+Use Docker Compose for full-stack deployment:
+
+```bash
+docker-compose up -d
+```
+
+This starts:
+- Frontend on port 3000
+- Backend on port 8000
+
+### Environment Setup
+
+Create `.env` file (see Prerequisites section above).
+
+### Deploy to Cloud
+
+Push to any Docker-compatible host:
+- Google Cloud Run
+- AWS ECS/Fargate
+- Azure Container Apps
+- DigitalOcean App Platform
+
+## Local Development
+
+See main [README.md](../README.md) for local development setup.
+
+**Backend:**
+```bash
+cd backend
+poetry install
+poetry run uvicorn app.main:app --reload --port 8000
+```
+
+**Frontend:**
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+## Troubleshooting
+
+### Backend not connecting
+
+- Check CORS settings in `backend/app/main.py`
+- Ensure `CORS_ORIGINS` includes your frontend URL
+
+### Ollama not working
+
+- Test Ollama endpoint: `curl http://your-ollama-url/api/tags`
+- Check API key if using Ollama Cloud
+- Verify model name exists: `ollama list` (if local)
+
+### TED API errors
+
+- Verify API key is correct
+- Check rate limits (TED API may have usage limits)
+- Review logs: backend shows detailed error messages
+
+## Production Checklist
+
+- [ ] Set all environment variables
+- [ ] Test TED API key
+- [ ] Test Ollama connection
+- [ ] Set `ENVIRONMENT=production` in backend
+- [ ] Add custom domain (optional)
+- [ ] Set up monitoring (optional)
+- [ ] Enable HTTPS (Vercel does this automatically)
   -H "Authorization: Bearer $OLLAMA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

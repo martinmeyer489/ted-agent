@@ -1,102 +1,174 @@
 # System Architecture
 
-## 1. High-Level Architecture
+## Overview
+
+TED Bot is a full-stack application with a Next.js frontend and FastAPI backend powered by an Agno agent that searches EU tender data.
+
+## High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         User                                 │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  Web Chat Interface                          │
-│                  (HTML/JavaScript)                           │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         │ HTTP/WebSocket
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   FastAPI Backend                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │              Agno Agent Layer                         │  │
-│  │  ┌──────────────────────────────────────────────┐    │  │
-│  │  │  - Search Agent                               │    │  │
-│  │  │  - Analysis Agent                             │    │  │
-│  │  │  - Monitoring Agent                           │    │  │
-│  │  │  - Notification Agent                         │    │  │
-│  │  └──────────────────────────────────────────────┘    │  │
-│  └──────────────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │              Service Layer                            │  │
-│  │  - TED API Client                                     │  │
-│  │  - Vector Search Service                             │  │
-│  │  - Notification Service                              │  │
-│  │  - Scheduler Service                                 │  │
-│  └──────────────────────────────────────────────────────┘  │
-└───────────┬──────────────────────┬──────────────────────────┘
-            │                      │
-            │                      │
-            ▼                      ▼
-┌───────────────────────┐  ┌──────────────────────────────────┐
-│   Ollama Cloud        │  │        Supabase                   │
-│   - Embedding Model   │  │  ┌──────────────────────────┐    │
-│   - Chat Model        │  │  │  PostgreSQL + pgvector   │    │
-│   (Hosted API)        │  │  │  - tender_notices        │    │
-│                       │  │  │  - embeddings            │    │
-│                       │  │  │  - user_preferences      │    │
-│                       │  │  │  - query_history         │    │
-│                       │  │  │  - notifications         │    │
-│                       │  │  └──────────────────────────┘    │
-└───────────────────────┘  └──────────────────────────────────┘
-            │
-            ▼
-┌───────────────────────────────────────────────────────────┐
-│                    TED API                                 │
-│            (Tenders Electronic Daily)                      │
-└───────────────────────────────────────────────────────────┘
+┌─────────────┐
+│    User     │
+└──────┬──────┘
+       │
+       ▼
+┌──────────────────────┐
+│   Next.js Frontend   │
+│   - Chat UI          │
+│   - Workspace Table  │
+└──────┬───────────────┘
+       │ HTTP/SSE
+       ▼
+┌──────────────────────┐
+│  FastAPI Backend     │
+│  ┌────────────────┐  │
+│  │  TED Agent     │  │
+│  │  (Agno)        │  │
+│  │  ┌──────────┐  │  │
+│  │  │ Tools:   │  │  │
+│  │  │ - Search │  │  │
+│  │  │ - SPARQL │  │  │
+│  │  │ - Details│  │  │
+│  │  │ - Update │  │  │
+│  │  └──────────┘  │  │
+│  └────────────────┘  │
+└──────┬───────────────┘
+       │
+       ├──────────┬────────────┐
+       ▼          ▼            ▼
+  ┌────────┐  ┌──────┐  ┌──────────┐
+  │TED API │  │Ollama│  │Supabase  │
+  │        │  │(LLM) │  │(optional)│
+  └────────┘  └──────┘  └──────────┘
 ```
 
-## 2. Component Architecture
+## Components
 
-### 2.1 Frontend Layer
+### Frontend (Next.js)
 
-#### Chat Interface
-- **Technology**: Vanilla HTML, CSS, JavaScript
-- **Responsibilities**:
-  - Render chat messages
-  - Capture user input
-  - Display tender results
-  - Handle loading states
-  - Manage WebSocket/HTTP communication
-- **Key Features**:
-  - Lightweight (no heavy frameworks)
-  - Responsive design
-  - Markdown rendering for rich responses
-  - Copy-to-clipboard for tender details
+**Path**: `/frontend`
 
-### 2.2 Backend Layer
+- **Tech**: Next.js 15, TypeScript, Tailwind CSS, shadcn/ui
+- **Features**:
+  - Chat interface with SSE streaming
+  - Workspace table panel (resizable)
+  - Session management (sidebar)
+  - Tool call visualization
+- **Key files**:
+  - `src/app/page.tsx` - Main chat page
+  - `src/components/chat/` - Chat components
+  - `src/components/workspace/` - Table panel
+  - `src/hooks/useAIResponseStream.tsx` - SSE handling
 
-#### FastAPI Application
-- **Technology**: FastAPI (Python 3.11+)
-- **Responsibilities**:
-  - HTTP API endpoints
-  - WebSocket endpoint for chat
-  - Request validation (Pydantic)
-  - Error handling
-  - CORS configuration
-  - OpenAPI documentation
-- **Key Routes**:
-  - `/api/chat` - Chat interface
-  - `/api/search` - Direct search endpoint
-  - `/api/tenders/{id}` - Get tender details
-  - `/api/notifications` - Manage notifications
-  - `/api/reports` - Generate reports
+### Backend (FastAPI)
+
+**Path**: `/backend`
+
+- **Tech**: FastAPI, Python 3.11+, Agno framework
+- **Routes** (See [backend/README.md](../backend/README.md)):
+  - `/agents`, `/sessions` - AgentOS API
+  - `/api/v1/chat` - Direct chat endpoint
+  - `/api/v1/search` - Direct search
   - `/health` - Health check
+- **Key files**:
+  - `app/main.py` - FastAPI app
+  - `app/agents/ted_agent.py` - Main agent
+  - `app/agents/tools.py` - Search tools
+  - `app/services/ted_client.py` - TED API client
 
-#### Agno Agent Layer
-- **Technology**: Agno framework
-- **Architecture**: Multi-agent system with specialized agents
-- **Agents**:
+### TED Agent (Agno)
+
+The main agent orchestrates tools to search and analyze tenders:
+
+**Tools:**
+1. `search_ted_tenders` - Search using TED Expert Search API
+2. `get_ted_notice_details` - Fetch specific notice details
+3. `query_ted_sparql` - Run SPARQL queries (advanced)
+4. `update_workspace_table` - Update the UI table
+
+**How it works:**
+```python
+Agent(
+    name="TED Tender Search Agent",
+    model=Ollama(id="llama3.1"),
+    tools=[search_ted_tenders, get_ted_notice_details, ...],
+    instructions=["You help users find EU tender opportunities..."]
+)
+```
+
+The agent decides which tools to call based on the user's question and returns results in a conversational way.
+
+### External Services
+
+1. **TED API**
+   - Endpoint: `https://api.ted.europa.eu/v3`
+   - Provides tender notices data
+   - Requires API key (env: `TED_API_KEY`)
+
+2. **Ollama** (LLM)
+   - Local: `http://localhost:11434`
+   - Cloud: Custom URL with API key
+   - Model: `llama3.1` (or configured)
+   - Used by Agno for agent reasoning
+
+3. **Supabase** (Optional)
+   - PostgreSQL database
+   - Used for session persistence, caching
+   - Can run without it (in-memory mode)
+
+## Data Flow
+
+### Chat Flow
+
+1. **User** sends message in UI
+2. **Frontend** calls `POST /agents/{id}/runs` with message
+3. **Backend** creates agent run, streams SSE events:
+   - `RunStarted` - Agent begins
+   - `AgentThinking` - Agent is reasoning
+   - `ToolCallStarted` - Agent calls a tool (e.g., search)
+   - `ToolCallCompleted` - Tool returns results (may include table data)
+   - `RunCompleted` - Final response
+4. **Frontend** updates UI in real-time
+
+### Workspace Table Flow
+
+1. User asks: "Find software tenders in Germany"
+2. Agent calls `search_ted_tenders` tool
+3. Tool returns `{ text: "...", table: {...} }`
+4. Backend includes `table` in `ToolCallCompleted` SSE event
+5. Frontend receives table data → opens workspace panel
+6. User asks: "Remove all from France"
+7. Agent calls `update_workspace_table` with filtered data
+8. Frontend replaces table
+
+## Tech Stack Summary
+
+| Component | Technology |
+|-----------|-----------|
+| Frontend | Next.js 15, TypeScript, Tailwind |
+| Backend | FastAPI, Python 3.11+ |
+| Agent | Agno framework |
+| LLM | Ollama (llama3.1) |
+| Database | Supabase (optional) |
+| TED Data | TED API v3 + SPARQL |
+| Deployment | Vercel |
+
+## Configuration
+
+All configuration via environment variables (see main [README.md](../README.md)):
+
+- `TED_API_KEY` - TED API credentials
+- `OLLAMA_API_URL` - Ollama endpoint
+- `OLLAMA_API_KEY` - Ollama Cloud key (if needed)
+- `OLLAMA_CHAT_MODEL` - LLM model name
+- `SUPABASE_URL`, `SUPABASE_KEY` - Database (optional)
+
+## Further Reading
+
+- [Backend README](../backend/README.md) - Backend details
+- [Frontend README](../frontend/README.md) - Frontend details
+- [Database Schema](database-schema.md) - Data models
+- [Workspace Panel Spec](workspace-panel-spec.md) - Table feature
 
   1. **Search Agent**
      - Handles tender search queries

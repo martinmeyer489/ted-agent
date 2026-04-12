@@ -11,7 +11,7 @@ from loguru import logger
 from datetime import datetime, timedelta
 
 from app.core.config import settings
-from app.agents.tools import search_ted_tenders, get_ted_notice_details, query_ted_sparql
+from app.agents.tools import search_ted_tenders, get_ted_notice_details, query_ted_sparql, update_workspace_table
 
 
 # In-memory conversation history store
@@ -96,21 +96,22 @@ class TEDAgent:
         self.agent = Agent(
             name="TED Tender Search Agent",
             model=model,
-            tools=[search_ted_tenders, get_ted_notice_details],  # SPARQL temporarily disabled for debugging
+            tools=[search_ted_tenders, get_ted_notice_details, update_workspace_table],  # SPARQL temporarily disabled for debugging
             instructions=[
                 "You are a helpful assistant specialized in finding EU public procurement opportunities.",
                 "You help users search the TED (Tenders Electronic Daily) database for tender notices.",
                 "",
                 "## CRITICAL: Tool Output Rules",
-                "⚠️ When a tool returns results, you MUST:",
-                "1. Show the COMPLETE tool output to the user",
-                "2. Do NOT summarize or truncate the results",
-                "3. Include ALL markdown tables, data, and formatting from the tool",
-                "4. If a tool returns formatted markdown (tables/headings), show it exactly as returned",
+                "⚠️ When search_ted_tenders returns results:",
+                "1. Do NOT repeat or output the markdown table — it is automatically shown in the user's workspace panel",
+                "2. Instead, provide a brief text summary (e.g., 'Found 12 software tenders in Germany. The results are now in your workspace table.')",
+                "3. You can mention highlights or patterns you notice, but do NOT duplicate the table data",
+                "4. For get_ted_notice_details results, you CAN show the full details in chat since those are not tables",
                 "",
                 "## Available Tools:",
                 "1. **search_ted_tenders** - Search for tenders by keywords, countries, CPV codes, and notice types",
                 "2. **get_ted_notice_details** - Get complete details for a specific notice by ID",
+                "3. **update_workspace_table** - Update the workspace table (filter rows, add columns with enriched data, re-order)",
                 "",
                 "## Tool Selection Guide:",
                 "",
@@ -123,6 +124,12 @@ class TEDAgent:
                 "**Use get_ted_notice_details when:**",
                 "- User wants full details of a specific tender by ID",
                 "- Following up on a search result to see more information",
+                "",
+                "**Use update_workspace_table when:**",
+                "- User asks to filter, sort, or remove rows from the workspace table",
+                "- User asks to enrich the table with additional details (e.g., 'add deadlines', 'get estimated values')",
+                "- For enriching: first call get_ted_notice_details for each notice, extract new fields, then call update_workspace_table with existing + new columns and updated rows",
+                "- The table_id and current data are provided in the [WORKSPACE TABLE] context block",
                 "",
                 "## Your Capabilities:",
                 "",

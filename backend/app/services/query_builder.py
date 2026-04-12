@@ -97,6 +97,40 @@ class TEDQueryBuilder:
         
         return self
     
+    def procedure_types(self, procedure_types: List[str]) -> 'TEDQueryBuilder':
+        """Add procedure type filter using procedure-type field with IN operator.
+
+        Args:
+            procedure_types: List of procedure type codes.
+
+        Valid codes:
+            - open: Open procedure
+            - 4: Negotiated procedure
+            - 6: Accelerated negotiated procedure
+            - A: Direct award
+            - E: Concession award procedure
+            - F: Concession award without prior concession notice
+            - V: Contract award without prior publication
+            - comp-dial: Competitive dialogue
+            - comp-tend: Competitive tendering (article 5(3) of Regulation 1370/2007)
+            - innovation: Innovation partnership
+            - neg-w-call: Negotiated with prior publication / competitive with negotiation
+            - neg-wo-call: Negotiated without prior call for competition
+        """
+        if not procedure_types:
+            return self
+
+        clean_types = [pt.strip() for pt in procedure_types if pt and pt.strip()]
+
+        if clean_types:
+            if len(clean_types) == 1:
+                self.query_parts.append(f"procedure-type={clean_types[0]}")
+            else:
+                types_str = " ".join(clean_types)
+                self.query_parts.append(f"procedure-type IN ({types_str})")
+
+        return self
+
     def published_after(self, date: str) -> 'TEDQueryBuilder':
         """Add publication date filter (>= date)."""
         clean_date = self._normalize_date(date)

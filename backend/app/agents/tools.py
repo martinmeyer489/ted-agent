@@ -6,6 +6,8 @@ Provides TED API search functionality as agent tools.
 
 from typing import List, Optional, Dict, Any
 import httpx
+import json
+import uuid
 from agno.tools import tool
 from loguru import logger
 from markdownify import markdownify as md
@@ -21,6 +23,7 @@ def search_ted_tenders(
     countries: Optional[List[str]] = None,
     cpv_codes: Optional[List[str]] = None,
     notice_types: Optional[List[str]] = None,
+    procedure_types: Optional[List[str]] = None,
     max_results: int = 10,
 ) -> str:
     """
@@ -46,6 +49,19 @@ def search_ted_tenders(
             - "can-desg": Design contest award notice
             - "pin-only": Prior information notice
             - "veat": Voluntary ex-ante transparency notice
+        procedure_types: Optional list of procedure type codes to filter by. Common types:
+            - "open": Open procedure
+            - "4": Negotiated procedure
+            - "6": Accelerated negotiated procedure
+            - "A": Direct award
+            - "E": Concession award procedure
+            - "F": Concession award without prior concession notice
+            - "V": Contract award without prior publication
+            - "comp-dial": Competitive dialogue
+            - "comp-tend": Competitive tendering (article 5(3) of Regulation 1370/2007)
+            - "innovation": Innovation partnership
+            - "neg-w-call": Negotiated with prior publication / competitive with negotiation
+            - "neg-wo-call": Negotiated without prior call for competition
         max_results: Maximum number of results to return (default: 10, max: 50)
     
     Returns:
@@ -63,9 +79,11 @@ def search_ted_tenders(
         - "Look for construction projects with CPV code 45000000"
         - "Find contract award notices in Poland" (use notice_types=["can-standard"])
         - "Show me design contest notices" (use notice_types=["cn-desg"])
+        - "Find open negotiated procedures" (use procedure_types=["4", "neg-wo-call"])
+        - "Show competitive dialogue tenders" (use procedure_types=["comp-dial"])
     """
     try:
-        logger.info(f"Tool called: search_ted_tenders(query='{query}', countries={countries}, cpv_codes={cpv_codes}, notice_types={notice_types}, max_results={max_results})")
+        logger.info(f"Tool called: search_ted_tenders(query='{query}', countries={countries}, cpv_codes={cpv_codes}, notice_types={notice_types}, procedure_types={procedure_types}, max_results={max_results})")
         
         # Limit max_results
         max_results = min(max_results, 50)
@@ -89,6 +107,10 @@ def search_ted_tenders(
         # Add notice type filters
         if notice_types:
             query_builder.notice_types(notice_types)
+        
+        # Add procedure type filters
+        if procedure_types:
+            query_builder.procedure_types(procedure_types)
         
         expert_query = query_builder.build(sort_by="publication-date DESC")
         
@@ -218,6 +240,27 @@ def search_ted_tenders(
             f"**Search Query:** {query}",
         ]
         
+        # Build structured table rows for workspace panel
+        table_rows = []
+        for i, notice in enumerate(notices, 1):
+            title_full = get_field(notice, "notice-title", "Untitled")
+            buyer_full = get_field(notice, "buyer-name", "N/A")
+            place_country = get_field(notice, "place-of-performance-country-lot", "N/A")
+            pub_date = get_field(notice, "publication-date", "N/A")[:10]
+            deadline = get_field(notice, "deadline-receipt-tender-date-lot", "N/A")[:10]
+            notice_id = get_field(notice, "publication-number")
+            link = f"https://ted.europa.eu/en/notice/-/detail/{notice_id}"
+            table_rows.append({
+                "index": i,
+                "title": title_full,
+                "buyer": buyer_full,
+                "country": place_country,
+                "published": pub_date,
+                "deadline": deadline,
+                "noticeId": notice_id,
+                "link": link,
+            })
+        
         if countries:
             response_parts.append(f"**Countries:** {', '.join(countries)}")
         if cpv_codes:
@@ -326,7 +369,26 @@ def search_ted_tenders(
         
         result_text = "\n".join(response_parts)
         logger.info(f"Tool returning {len(result_text)} characters of formatted results")
-        return result_text
+        
+        # Return JSON with text (for LLM) and table (for workspace panel)
+        return json.dumps({
+            "text": result_text,
+            "table": {
+                "id": str(uuid.uuid4()),
+                "title": f"{query} — {len(notices)} results",
+                "columns": [
+                    {"key": "index", "label": "#"},
+                    {"key": "title", "label": "Title"},
+                    {"key": "buyer", "label": "Buyer"},
+                    {"key": "country", "label": "Country"},
+                    {"key": "published", "label": "Published"},
+                    {"key": "deadline", "label": "Deadline"},
+                    {"key": "noticeId", "label": "Publication Number"},
+                    {"key": "link", "label": "TED Link"},
+                ],
+                "rows": table_rows,
+            }
+        })
     
     except httpx.HTTPStatusError as e:
         error_msg = f"Error searching TED API: HTTP {e.response.status_code} - {e.response.text}"
@@ -455,6 +517,45 @@ def get_ted_notice_details(notice_id: str) -> str:
         error_msg = f"Unexpected error fetching notice {notice_id}: {str(e)}"
         logger.error(error_msg, exc_info=True)
         return f"❌ {error_msg}\n\nPlease try again or contact support if the issue persists."
+
+
+@tool
+def update_workspace_table(
+    table_id: str,
+    title: str,
+    columns_json: str,
+    rows_json: str,
+) -> str:
+    """
+    Update a table in the user's workspace panel. Use this to:
+    - Filter or remove rows
+    - Add new columns with enriched data (e.g., deadline, estimated value from notice details)
+    - Re-order or rename columns
+    
+    Args:
+        table_id: The table ID from the workspace context (provided in the [WORKSPACE TABLE] block)
+        title: Updated title for the table (can be same as before)
+        columns_json: JSON array of ALL columns (existing + new), e.g. '[{"key":"title","label":"Title"},{"key":"deadline","label":"Deadline"}]'
+        rows_json: JSON array of ALL rows with all fields populated
+    
+    To add columns: first call get_ted_notice_details for each notice to get the details,
+    extract the new fields, then call this tool with the combined column list and updated rows.
+    
+    Returns:
+        JSON with text confirmation and updated table data for the workspace panel.
+    """
+    try:
+        columns = json.loads(columns_json)
+        rows = json.loads(rows_json)
+        logger.info(f"update_workspace_table: id={table_id}, {len(columns)} cols, {len(rows)} rows")
+        return json.dumps({
+            "text": f"Updated table '{title}' ({len(rows)} rows, {len(columns)} columns).",
+            "table": {"id": table_id, "title": title, "columns": columns, "rows": rows}
+        })
+    except json.JSONDecodeError as e:
+        error_msg = f"Invalid JSON in columns or rows: {str(e)}"
+        logger.error(error_msg)
+        return error_msg
 
 
 @tool

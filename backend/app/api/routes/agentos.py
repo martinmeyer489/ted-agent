@@ -233,13 +233,29 @@ async def run_agent(
                             # Send ToolCallCompleted for tools that have results
                             tools = getattr(run_response, 'tools', None) or []
                             for tc in tools:
-                                yield json.dumps({
+                                # Try to extract workspace table from tool content
+                                table_data = None
+                                tool_content = tc.get("content")
+                                if isinstance(tool_content, str):
+                                    try:
+                                        parsed = json.loads(tool_content)
+                                        if isinstance(parsed, dict) and "table" in parsed:
+                                            table_data = parsed["table"]
+                                            tc["content"] = parsed.get("text", "")
+                                    except (json.JSONDecodeError, TypeError):
+                                        pass
+                                
+                                event_payload = {
                                     "event": "ToolCallCompleted",
                                     "session_id": session_id_value,
                                     "run_id": run_id,
                                     "tool": _format_tool_call(tc, started=False),
                                     "created_at": int(time_module.time()),
-                                })
+                                }
+                                if table_data:
+                                    event_payload["table"] = table_data
+                                
+                                yield json.dumps(event_payload)
                         
                         elif event_type == "RunResponse":
                             # Content delta from the model

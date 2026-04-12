@@ -14,6 +14,12 @@ export const truncateText = (text: string, limit: number) => {
 
 export const isValidUrl = (url: string): boolean => {
   try {
+    // Accept relative paths starting with /
+    if (url.trim().startsWith('/')) {
+      return true
+    }
+    
+    // Full URL pattern
     const pattern = new RegExp(
       '^https?:\\/\\/' +
         '((([a-zA-Z\\d]([a-zA-Z\\d-]*[a-zA-Z\\d])*)\\.)+[a-zA-Z]{2,}|' +

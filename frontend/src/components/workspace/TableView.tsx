@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
-import { WorkspaceTable } from '@/types/workspace'
+import { WorkspaceTable, TableRow } from '@/types/workspace'
 import { useStore } from '@/store'
 
 type SortDir = 'asc' | 'desc' | null
@@ -13,7 +13,7 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
   const toggleSavedTender = useStore((s) => s.toggleSavedTender)
 
   const isSaved = useCallback(
-    (row: Record<string, any>) =>
+    (row: TableRow) =>
       savedTenders.some((t) => JSON.stringify(t) === JSON.stringify(row)),
     [savedTenders]
   )

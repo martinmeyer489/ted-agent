@@ -7,7 +7,7 @@ import {
   TeamDetails,
   type ChatMessage
 } from '@/types/os'
-import { WorkspaceTable } from '@/types/workspace'
+import { WorkspaceTable, TableRow } from '@/types/workspace'
 
 interface Store {
   hydrated: boolean
@@ -63,8 +63,8 @@ interface Store {
   workspaceWidth: number
   setWorkspaceWidth: (w: number) => void
   // Saved tenders
-  savedTenders: Record<string, any>[]
-  toggleSavedTender: (row: Record<string, any>) => void
+  savedTenders: TableRow[]
+  toggleSavedTender: (row: TableRow) => void
   removeSavedTender: (index: number) => void
   clearSavedTenders: () => void
 }

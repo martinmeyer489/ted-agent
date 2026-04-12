@@ -17,7 +17,7 @@ import { truncateText } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const ENDPOINT_PLACEHOLDER = 'NO ENDPOINT ADDED'
-const SidebarHeader = () => (1
+const SidebarHeader = () => (
   <div className="flex items-center gap-2">
     <Icon type="agno" size="xs" />
     <span className="text-xs font-medium uppercase text-white">Agent UI</span>

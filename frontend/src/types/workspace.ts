@@ -3,9 +3,12 @@ export interface TableColumn {
   label: string
 }
 
+export type RowValue = string | number | boolean | null | undefined
+export type TableRow = Record<string, RowValue>
+
 export interface WorkspaceTable {
   id: string
   title: string
   columns: TableColumn[]
-  rows: Record<string, string | number | boolean | null | undefined>[]
+  rows: TableRow[]
 }

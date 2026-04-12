@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-border-default: 255, 255, 255, 0.2;
+    --scrollbar-width: 0.1rem;
+  }
+
+  body {
+    @apply bg-background/80 text-secondary;
+  }
+}
+
+::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+}
+
+::-webkit-scrollbar-thumb {
+  --tw-border-opacity: 1;
+  @apply bg-border;
+  border-color: rgba(255, 255, 255, var(--tw-border-opacity));
+  border-radius: 9999px;
+  border-width: 1px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+  border-radius: 9999px;
+}
+
+/* Markdown prose styling */
+.prose-invert {
+  @apply text-gray-100;
+  font-size: 0.9rem;
+}
+
+.prose-sm {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.prose table {
+  @apply w-full border-collapse my-3 text-sm;
+}
+
+.prose th {
+  @apply bg-gray-700 px-3 py-2 text-left font-semibold border border-gray-600;
+}
+
+.prose td {
+  @apply px-3 py-2 border border-gray-700;
+}
+
+.prose tr:nth-child(even) {
+  @apply bg-gray-800/50;
+}
+
+.prose p {
+  @apply my-2;
+}
+
+.prose ul {
+  @apply my-2 list-disc list-inside;
+}
+
+.prose ol {
+  @apply my-2 list-decimal list-inside;
+}
+
+.prose li {
+  @apply my-1;
+}
+
+.prose strong {
+  @apply font-bold text-white;
+}
+
+.prose em {
+  @apply italic;
+}
+
+.prose a {
+  @apply text-blue-400 hover:text-blue-300 underline;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  @apply font-bold text-white mt-4 mb-2;
+}
+
+.prose h1 {
+  @apply text-xl;
+}
+
+.prose h2 {
+  @apply text-lg;
+}
+
+.prose h3 {
+  @apply text-base;
+}
+
+.prose code {
+  @apply bg-gray-700 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.prose pre {
+  @apply bg-gray-700 p-3 rounded my-2 overflow-x-auto;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-gray-600 pl-4 my-2 italic;
+}

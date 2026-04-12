@@ -20,15 +20,19 @@ const SkeletonList: FC<SkeletonListProps> = ({ skeletonCount }) => {
     [skeletonCount]
   )
 
-  return list.map((k, idx) => (
-    <Skeleton
-      key={k}
-      className={cn(
-        'mb-1 h-11 rounded-lg px-3 py-2',
-        idx > 0 && 'bg-background-secondary'
-      )}
-    />
-  ))
+  return (
+    <>
+      {list.map((k, idx) => (
+        <Skeleton
+          key={k}
+          className={cn(
+            'mb-1 h-11 rounded-lg px-3 py-2',
+            idx > 0 && 'bg-background-secondary'
+          )}
+        />
+      ))}
+    </>
+  )
 }
 
 const Sessions = () => {

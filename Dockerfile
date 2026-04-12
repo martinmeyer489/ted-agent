@@ -6,7 +6,7 @@ WORKDIR /app
 RUN pip install poetry
 
 # Copy dependency files first for layer caching
-COPY pyproject.toml poetry.lock* ./
+COPY pyproject.toml poetry.lock* README.md ./
 
 # Configure poetry
 RUN poetry config virtualenvs.create false

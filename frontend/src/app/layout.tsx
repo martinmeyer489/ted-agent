@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { DM_Mono, Geist } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${dmMono.variable} antialiased`}>
         <NuqsAdapter>{children}</NuqsAdapter>
         <Toaster />
+        <Analytics />
       </body>
     </html>
   )

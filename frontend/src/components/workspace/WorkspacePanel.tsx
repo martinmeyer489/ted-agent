@@ -24,14 +24,14 @@ export default function WorkspacePanel() {
 
   return (
     <div
-      className="flex flex-col h-full bg-[#0d0d0f] border-r border-gray-700/60"
+      className="flex flex-col h-full bg-white border-r border-gray-200"
       style={{ width: `${width}%`, minWidth: 300 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/60 bg-[#141418] flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-blue-400 text-sm">📊</span>
-          <h2 className="text-sm font-semibold text-primary truncate">
+          <span className="text-blue-600 text-sm">📊</span>
+          <h2 className="text-sm font-semibold text-gray-900 truncate">
             {table ? table.title : 'Workspace'}
           </h2>
         </div>
@@ -40,14 +40,14 @@ export default function WorkspacePanel() {
             <>
               <button
                 onClick={handleExport}
-                className="text-muted hover:text-primary text-xs px-2 py-1 rounded hover:bg-gray-700 transition-colors"
+                className="text-gray-600 hover:text-gray-900 text-xs px-2 py-1 rounded hover:bg-gray-100 transition-colors"
                 title="Export to Excel"
               >
                 ⬇ .xlsx
               </button>
               <button
                 onClick={() => setTable(null)}
-                className="text-muted hover:text-primary text-xs px-2 py-1 rounded hover:bg-gray-700 transition-colors"
+                className="text-gray-600 hover:text-gray-900 text-xs px-2 py-1 rounded hover:bg-gray-100 transition-colors"
                 title="Clear table"
               >
                 ✕
@@ -60,16 +60,16 @@ export default function WorkspacePanel() {
       {/* Content */}
       {table ? (
         <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="px-4 py-2 text-xs text-muted/70 border-b border-gray-700/40 bg-[#111115] flex-shrink-0">
+          <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-200 bg-gray-50 flex-shrink-0">
             {table.rows.length} row{table.rows.length !== 1 ? 's' : ''} · {table.columns.length} column{table.columns.length !== 1 ? 's' : ''}
           </div>
           <TableView table={table} />
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted/50 text-sm px-8 text-center gap-3">
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-sm px-8 text-center gap-3">
           <span className="text-3xl opacity-30">📊</span>
           <p>No table yet</p>
-          <p className="text-xs text-muted/30">Search for tenders to populate this workspace</p>
+          <p className="text-xs text-gray-400">Search for tenders to populate this workspace</p>
         </div>
       )}
     </div>

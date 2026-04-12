@@ -90,7 +90,7 @@ const useChatActions = () => {
             const firstTeam = teams[0]
             setTeamId(firstTeam.id)
             setSelectedModel(firstTeam.model?.provider || '')
-            setDbId(firstTeam.db_id || '')
+            setDbId(firstTeam.db_id || null)
             setAgentId(null)
             setTeams(teams)
           } else if (currentMode === 'agent' && agents.length > 0) {
@@ -98,7 +98,7 @@ const useChatActions = () => {
             setMode('agent')
             setAgentId(firstAgent.id)
             setSelectedModel(firstAgent.model?.model || '')
-            setDbId(firstAgent.db_id || '')
+            setDbId(firstAgent.db_id || null)
             setAgents(agents)
           }
         } else {
@@ -109,14 +109,14 @@ const useChatActions = () => {
             if (agent) {
               setMode('agent')
               setSelectedModel(agent.model?.model || '')
-              setDbId(agent.db_id || '')
+              setDbId(agent.db_id || null)
               setTeamId(null)
             } else if (agents.length > 0) {
               const firstAgent = agents[0]
               setMode('agent')
               setAgentId(firstAgent.id)
               setSelectedModel(firstAgent.model?.model || '')
-              setDbId(firstAgent.db_id || '')
+              setDbId(firstAgent.db_id || null)
               setTeamId(null)
             }
           } else if (teamId) {
@@ -124,14 +124,14 @@ const useChatActions = () => {
             if (team) {
               setMode('team')
               setSelectedModel(team.model?.provider || '')
-              setDbId(team.db_id || '')
+              setDbId(team.db_id || null)
               setAgentId(null)
             } else if (teams.length > 0) {
               const firstTeam = teams[0]
               setMode('team')
               setTeamId(firstTeam.id)
               setSelectedModel(firstTeam.model?.provider || '')
-              setDbId(firstTeam.db_id || '')
+              setDbId(firstTeam.db_id || null)
               setAgentId(null)
             }
           }

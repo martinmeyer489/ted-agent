@@ -16,9 +16,9 @@ const dmMono = DM_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Agent UI',
+  title: 'TED Search Assistant - Tenders Electronic Daily',
   description:
-    'A modern chat interface for AI agents built with Next.js, Tailwind CSS, and TypeScript. This template provides a ready-to-use UI for interacting with Agno agents.'
+    'AI-powered search assistant for discovering and analyzing TED tender notices from the European Union'
 }
 
 export default function RootLayout({

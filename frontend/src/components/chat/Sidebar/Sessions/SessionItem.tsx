@@ -14,18 +14,13 @@ import { truncateText, cn } from '@/lib/utils'
 type SessionItemProps = SessionEntry & {
   isSelected: boolean
   currentSessionId: string | null
-  onSessionClick: () => void
 }
 const SessionItem = ({
   session_name: title,
   session_id,
   isSelected,
-  currentSessionId,
-  onSessionClick
+  currentSessionId
 }: SessionItemProps) => {
-  const [agentId] = useQueryState('agent')
-  const [teamId] = useQueryState('team')
-  const [dbId] = useQueryState('db_id')
   const [, setSessionId] = useQueryState('session')
   const authToken = useStore((state) => state.authToken)
   const { getSession } = useSessionLoader()
@@ -35,28 +30,21 @@ const SessionItem = ({
   const { clearChat } = useChatActions()
 
   const handleGetSession = async () => {
-    if (!(agentId || teamId || dbId)) return
-
-    onSessionClick()
+    setSessionId(session_id)
     await getSession(
       {
-        entityType: mode,
-        agentId,
-        teamId,
-        dbId: dbId ?? ''
+        entityType: mode
       },
       session_id
     )
-    setSessionId(session_id)
   }
 
   const handleDeleteSession = async () => {
-    if (!(agentId || teamId || dbId)) return
     setIsDeleting(true)
     try {
       const response = await deleteSessionAPI(
         selectedEndpoint,
-        dbId ?? '',
+        'default',
         session_id,
         authToken
       )
@@ -90,14 +78,18 @@ const SessionItem = ({
         className={cn(
           'group flex h-11 w-full items-center justify-between rounded-lg px-3 py-2 transition-colors duration-200',
           isSelected
-            ? 'cursor-default bg-primary/10'
+            ? 'cursor-default bg-white'
             : 'cursor-pointer bg-background-secondary hover:bg-background-secondary/80'
         )}
         onClick={handleGetSession}
       >
         <div className="flex flex-col gap-1">
           <h4
-            className={cn('text-sm font-medium', isSelected && 'text-primary')}
+            style={{ color: isSelected ? '#1F2937' : '#1F2937' }}
+            className={cn(
+              'text-sm font-medium',
+              isSelected ? 'font-semibold' : ''
+            )}
           >
             {truncateText(title, 20)}
           </h4>

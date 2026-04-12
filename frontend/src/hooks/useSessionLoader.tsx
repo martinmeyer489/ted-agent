@@ -19,9 +19,6 @@ interface SessionResponse {
 
 interface LoaderArgs {
   entityType: 'agent' | 'team' | null
-  agentId?: string | null
-  teamId?: string | null
-  dbId: string | null
 }
 
 const useSessionLoader = () => {
@@ -32,9 +29,12 @@ const useSessionLoader = () => {
   const setSessionsData = useStore((state) => state.setSessionsData)
 
   const getSessions = useCallback(
-    async ({ entityType, agentId, teamId, dbId }: LoaderArgs) => {
-      const selectedId = entityType === 'agent' ? agentId : teamId
-      if (!selectedEndpoint || !entityType || !selectedId || !dbId) return
+    async ({ entityType }: LoaderArgs) => {
+      if (!selectedEndpoint || !entityType) return
+
+      // Use the single TED agent
+      const selectedId = 'ted-agent'
+      const dbId = 'default'
 
       try {
         setIsSessionsLoading(true)
@@ -59,18 +59,14 @@ const useSessionLoader = () => {
 
   const getSession = useCallback(
     async (
-      { entityType, agentId, teamId, dbId }: LoaderArgs,
+      { entityType }: LoaderArgs,
       sessionId: string
     ) => {
-      const selectedId = entityType === 'agent' ? agentId : teamId
-      if (
-        !selectedEndpoint ||
-        !sessionId ||
-        !entityType ||
-        !selectedId ||
-        !dbId
-      )
-        return
+      if (!selectedEndpoint || !sessionId || !entityType) return
+
+      // Use the single TED agent
+      const selectedId = 'ted-agent'
+      const dbId = 'default'
 
       try {
         const response: SessionResponse = await getSessionAPI(

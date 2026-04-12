@@ -390,6 +390,8 @@ def search_ted_tenders(
                 "rows": table_rows,
             }
         })
+        # Note: Users can save tenders by clicking the star (☆) button in the UI
+        # Saved items are stored locally in the browser and accessible via the "Saved Items" page
     
     except httpx.HTTPStatusError as e:
         error_msg = f"Error searching TED API: HTTP {e.response.status_code} - {e.response.text}"
@@ -521,6 +523,10 @@ def get_ted_notice_details(notice_id: str) -> str:
         return f"❌ {error_msg}\n\nPlease try again or contact support if the issue persists."
 
 
+# ==============================================================================
+# Workspace Table Tool - COMMENTED OUT (NO LONGER IN USE)
+# ==============================================================================
+"""
 @tool
 def update_workspace_table(
     table_id: str,
@@ -528,7 +534,6 @@ def update_workspace_table(
     columns_json: str,
     rows_json: str,
 ) -> str:
-    """
     Update a table in the user's workspace panel. Use this to:
     - Filter or remove rows
     - Add new columns with enriched data (e.g., deadline, estimated value from notice details)
@@ -545,7 +550,6 @@ def update_workspace_table(
     
     Returns:
         JSON with text confirmation and updated table data for the workspace panel.
-    """
     try:
         columns = json.loads(columns_json)
         rows = json.loads(rows_json)
@@ -558,6 +562,12 @@ def update_workspace_table(
         error_msg = f"Invalid JSON in columns or rows: {str(e)}"
         logger.error(error_msg)
         return error_msg
+"""
+
+
+# ==============================================================================
+# SPARQL Query Tool
+# ==============================================================================
 
 
 @tool
@@ -731,3 +741,410 @@ def query_ted_sparql(
         error_msg = f"Unexpected error executing SPARQL query: {str(e)}"
         logger.error(error_msg, exc_info=True)
         return f"❌ {error_msg}\n\nPlease verify your SPARQL query syntax or contact support if the issue persists."
+
+
+@tool
+def analyze_buyer_profile(
+    buyer_name: str,
+    cpv_code: Optional[str] = None,
+    months_back: int = 12,
+) -> str:
+    """
+    Analyze a specific buyer's procurement activity and generate a comprehensive profile.
+    
+    This tool provides competitive intelligence on public sector buyers by aggregating
+    their tender history, spending patterns, category preferences, and activity trends.
+    Perfect for business development, market research, and opportunity targeting.
+    
+    Args:
+        buyer_name: Name of the contracting authority/buyer to analyze (e.g., "München", "Munich", 
+            "Stadtwerke München", "City of Berlin"). Can be partial - will find all matching buyers.
+        cpv_code: Optional CPV code to focus analysis (e.g., "72" for IT services, "45" for construction).
+            If provided, analysis focuses on this category only.
+        months_back: Number of months of historical data to analyze (default: 12, max: 24)
+    
+    Returns:
+        A comprehensive buyer intelligence report including:
+        - Total tender volume and estimated values
+        - Most active buyer entities matching the search
+        - Top procurement categories (CPV codes)
+        - Average contract values and value distribution
+        - Tender frequency and seasonal patterns
+        - Most common procurement procedures
+        - Recent tender examples
+        - Upcoming opportunities (active tenders)
+    
+    Example usage:
+        - "Analyze buyer profile for Munich" - Get overview of all Munich buyers
+        - "What does the City of Berlin procure?" - See Berlin's procurement patterns
+        - "Analyze Stadtwerke München for IT services" (with cpv_code="72")
+        - "Show me procurement activity for Hamburg in construction" (with cpv_code="45")
+        - "Who are the biggest buyers in Germany?" - Use search first, then analyze top buyers
+    
+    Use cases:
+        - **Market Research**: Understand buyer behavior and spending patterns
+        - **Lead Qualification**: Identify active buyers in your sector
+        - **Business Development**: Target high-value, frequent buyers
+        - **Competitive Intelligence**: See what buyers procure and how often
+        - **Opportunity Forecasting**: Predict future tenders based on historical patterns
+    """
+    try:
+        logger.info(f"Tool called: analyze_buyer_profile(buyer_name='{buyer_name}', cpv_code={cpv_code}, months_back={months_back})")
+        
+        # Limit months_back
+        months_back = min(months_back, 24)
+        
+        # Build search query to find buyer tenders
+        # Use buyer-name field (alias: AU) for precise buyer matching
+        # The ~ operator allows partial matching (e.g., "München" matches "Stadtwerke München GmbH")
+        query = f'AU~"{buyer_name}"'
+        
+        # Add CPV filter if specified
+        if cpv_code:
+            # Normalize CPV code (remove wildcards if present)
+            clean_cpv = cpv_code.replace("*", "").strip()
+            query += f' AND CPV={clean_cpv}'
+        
+        # Request comprehensive fields for analysis
+        fields = [
+            "publication-date",
+            "notice-title",
+            "buyer-name",
+            "buyer-city",
+            "buyer-country",
+            "classification-cpv",
+            "estimated-value-lot",
+            "notice-type",
+            "procedure-type",
+            "deadline-receipt-tender-date-lot",
+            "notice-identifier",
+            "publication-number",
+        ]
+        
+        # Fetch data from TED API
+        logger.info(f"Fetching buyer data with query: {query}")
+        payload = {
+            "query": query,
+            "fields": fields,
+            "page": 1,
+            "limit": 100,  # Get more data for better analysis
+            "scope": "ACTIVE",
+            "paginationMode": "PAGE_NUMBER",
+            "onlyLatestVersions": False,
+        }
+        
+        transport = httpx.HTTPTransport(local_address="0.0.0.0")
+        with httpx.Client(transport=transport, timeout=60.0) as client:
+            response = client.post(
+                f"{settings.ted_api_url}/notices/search",
+                json=payload,
+                headers={
+                    "accept": "*/*",
+                    "Content-Type": "application/json",
+                },
+            )
+        response.raise_for_status()
+        result = response.json()
+        
+        notices = result.get("notices", [])
+        
+        if not notices:
+            return f"❌ No tender data found for buyer: **{buyer_name}**\n\n💡 **Suggestions:**\n- Try a shorter or partial name (e.g., 'Munich' instead of 'City of Munich')\n- Check spelling\n- Try searching in the buyer's native language (e.g., 'München' for Munich)\n- The buyer may not have recent tenders in the database"
+        
+        logger.info(f"Analyzing {len(notices)} notices for buyer profile")
+        
+        # Helper function to safely extract field values (reuse from search_ted_tenders)
+        def get_field(notice: Dict, field_name: str, default: str = "N/A") -> str:
+            """Safely extract field from notice structure."""
+            value = notice.get(field_name)
+            if value is None:
+                source = notice.get("_source", {})
+                value = source.get(field_name, default)
+            
+            if value == default:
+                return default
+            
+            # Handle multilingual fields
+            if isinstance(value, dict):
+                for eng_key in ["eng", "en", "ENG", "EN"]:
+                    if eng_key in value:
+                        val = value[eng_key]
+                        if isinstance(val, list) and len(val) > 0:
+                            return str(val[0])
+                        elif val:
+                            return str(val)
+                for lang_val in value.values():
+                    if isinstance(lang_val, list) and len(lang_val) > 0:
+                        return str(lang_val[0])
+                    elif lang_val:
+                        return str(lang_val)
+                return default
+            elif isinstance(value, list) and len(value) > 0:
+                if isinstance(value[0], dict):
+                    for item in value:
+                        for eng_key in ["eng", "en", "ENG", "EN"]:
+                            if eng_key in item:
+                                return str(item[eng_key])
+                        for v in item.values():
+                            if v:
+                                return str(v)
+                else:
+                    return str(value[0])
+            elif value:
+                return str(value)
+            return default
+        
+        # Aggregate data
+        buyers = {}  # buyer_name -> count
+        cpv_categories = {}  # cpv_code -> count
+        notice_types = {}  # notice_type -> count
+        procedure_types = {}  # procedure_type -> count
+        values = []  # list of estimated values
+        pub_dates = []  # list of publication dates
+        deadlines = []  # list of upcoming deadlines
+        recent_notices = []  # sample recent notices
+        
+        for notice in notices:
+            # Buyer names
+            buyer = get_field(notice, "buyer-name")
+            if buyer != "N/A":
+                buyers[buyer] = buyers.get(buyer, 0) + 1
+            
+            # CPV codes (main category - first 2 digits)
+            cpv = get_field(notice, "classification-cpv")
+            if cpv != "N/A" and len(cpv) >= 2:
+                cpv_main = cpv[:2]
+                cpv_categories[cpv_main] = cpv_categories.get(cpv_main, 0) + 1
+            
+            # Notice types
+            notice_type = get_field(notice, "notice-type")
+            if notice_type != "N/A":
+                notice_types[notice_type] = notice_types.get(notice_type, 0) + 1
+            
+            # Procedure types
+            proc_type = get_field(notice, "procedure-type")
+            if proc_type != "N/A":
+                procedure_types[proc_type] = procedure_types.get(proc_type, 0) + 1
+            
+            # Values
+            value_str = get_field(notice, "estimated-value-lot")
+            if value_str != "N/A":
+                try:
+                    value = float(value_str)
+                    if value > 0:
+                        values.append(value)
+                except (ValueError, TypeError):
+                    pass
+            
+            # Publication dates
+            pub_date = get_field(notice, "publication-date")
+            if pub_date != "N/A":
+                pub_dates.append(pub_date[:10])
+            
+            # Deadlines (for upcoming opportunities)
+            deadline = get_field(notice, "deadline-receipt-tender-date-lot")
+            if deadline != "N/A":
+                try:
+                    from datetime import datetime
+                    deadline_date = datetime.fromisoformat(deadline[:10])
+                    today = datetime.now()
+                    if deadline_date > today:
+                        deadlines.append({
+                            "date": deadline[:10],
+                            "title": get_field(notice, "notice-title")[:80],
+                            "buyer": buyer,
+                            "notice_id": get_field(notice, "publication-number"),
+                        })
+                except:
+                    pass
+            
+            # Store recent notices (first 5)
+            if len(recent_notices) < 5:
+                recent_notices.append({
+                    "title": get_field(notice, "notice-title"),
+                    "buyer": buyer,
+                    "cpv": cpv,
+                    "pub_date": pub_date[:10] if pub_date != "N/A" else "N/A",
+                    "notice_id": get_field(notice, "publication-number"),
+                })
+        
+        # Build comprehensive report
+        report_parts = [
+            f"# 🏢 Buyer Intelligence Report: {buyer_name}\n",
+            f"**Analysis Period:** Last {months_back} months",
+            f"**Total Tenders Analyzed:** {len(notices)}",
+        ]
+        
+        if cpv_code:
+            report_parts.append(f"**CPV Category Filter:** {cpv_code}*\n")
+        else:
+            report_parts.append("")
+        
+        report_parts.append("---\n")
+        
+        # Section 1: Top Buyers
+        report_parts.append("## 📊 Most Active Buyer Entities\n")
+        if buyers:
+            sorted_buyers = sorted(buyers.items(), key=lambda x: x[1], reverse=True)[:10]
+            for i, (buyer, count) in enumerate(sorted_buyers, 1):
+                pct = (count / len(notices)) * 100
+                report_parts.append(f"{i}. **{buyer}** — {count} tenders ({pct:.1f}%)")
+        else:
+            report_parts.append("No buyer data available")
+        
+        # Section 2: Procurement Categories
+        report_parts.append("\n## 🎯 Top Procurement Categories (CPV)\n")
+        if cpv_categories:
+            sorted_cpv = sorted(cpv_categories.items(), key=lambda x: x[1], reverse=True)[:10]
+            
+            # CPV category names (common ones)
+            cpv_names = {
+                "03": "Agricultural products",
+                "09": "Petroleum/fuel products",
+                "15": "Food/beverages",
+                "18": "Clothing/footwear",
+                "22": "Printed matter",
+                "24": "Chemical products",
+                "30": "Office/computing machinery",
+                "31": "Electrical machinery",
+                "32": "Radio/TV equipment",
+                "33": "Medical equipment",
+                "34": "Transport equipment",
+                "35": "Security equipment",
+                "37": "Musical instruments",
+                "38": "Laboratory equipment",
+                "39": "Furniture",
+                "42": "Industrial machinery",
+                "44": "Construction structures",
+                "45": "Construction work",
+                "48": "Software packages",
+                "50": "Repair/maintenance",
+                "51": "Installation services",
+                "55": "Hotel/restaurant services",
+                "60": "Transport services",
+                "63": "Travel/supporting services",
+                "64": "Postal/telecommunications",
+                "65": "Utility services",
+                "66": "Financial services",
+                "70": "Real estate services",
+                "71": "Architectural/engineering",
+                "72": "IT services",
+                "73": "Research services",
+                "75": "Administration services",
+                "76": "Services to oil/gas",
+                "77": "Agricultural services",
+                "79": "Business services",
+                "80": "Education services",
+                "85": "Health/social services",
+                "90": "Sewage/waste services",
+                "92": "Recreational/cultural",
+                "98": "Other services",
+            }
+            
+            for i, (cpv, count) in enumerate(sorted_cpv, 1):
+                pct = (count / len(notices)) * 100
+                category_name = cpv_names.get(cpv, "Other")
+                report_parts.append(f"{i}. **CPV {cpv}*** ({category_name}) — {count} tenders ({pct:.1f}%)")
+        else:
+            report_parts.append("No CPV data available")
+        
+        # Section 3: Financial Analysis
+        report_parts.append("\n## 💰 Financial Overview\n")
+        if values:
+            total_value = sum(values)
+            avg_value = total_value / len(values)
+            min_value = min(values)
+            max_value = max(values)
+            median_value = sorted(values)[len(values) // 2]
+            
+            report_parts.extend([
+                f"- **Total Estimated Value:** €{total_value:,.0f}",
+                f"- **Average Contract Value:** €{avg_value:,.0f}",
+                f"- **Median Value:** €{median_value:,.0f}",
+                f"- **Value Range:** €{min_value:,.0f} - €{max_value:,.0f}",
+                f"- **Tenders with Values:** {len(values)} of {len(notices)}",
+            ])
+            
+            # Value distribution
+            report_parts.append("\n**Value Distribution:**")
+            ranges = [
+                (0, 100_000, "€0-100K"),
+                (100_000, 500_000, "€100K-500K"),
+                (500_000, 1_000_000, "€500K-1M"),
+                (1_000_000, 5_000_000, "€1M-5M"),
+                (5_000_000, float('inf'), "€5M+"),
+            ]
+            for min_val, max_val, label in ranges:
+                count = len([v for v in values if min_val <= v < max_val])
+                if count > 0:
+                    pct = (count / len(values)) * 100
+                    report_parts.append(f"- {label}: {count} tenders ({pct:.1f}%)")
+        else:
+            report_parts.append("*No estimated value data available*")
+        
+        # Section 4: Procurement Activity Patterns
+        report_parts.append("\n## 📈 Activity Patterns\n")
+        if pub_dates:
+            # Calculate tender frequency
+            avg_per_month = len(notices) / months_back
+            report_parts.append(f"- **Average Frequency:** ~{avg_per_month:.1f} tenders per month")
+            
+            # Most common notice types
+            if notice_types:
+                top_notice_type = max(notice_types.items(), key=lambda x: x[1])
+                report_parts.append(f"- **Most Common Notice Type:** {top_notice_type[0]} ({top_notice_type[1]} tenders)")
+            
+            # Most common procedure types
+            if procedure_types:
+                top_proc_type = max(procedure_types.items(), key=lambda x: x[1])
+                report_parts.append(f"- **Most Common Procedure:** {top_proc_type[0]} ({top_proc_type[1]} tenders)")
+        
+        # Section 5: Upcoming Opportunities
+        if deadlines:
+            report_parts.append("\n## ⏰ Upcoming Opportunities\n")
+            sorted_deadlines = sorted(deadlines, key=lambda x: x["date"])[:5]
+            for dl in sorted_deadlines:
+                report_parts.append(f"- **{dl['date']}** — {dl['title']} (Notice: `{dl['notice_id']}`)")
+        else:
+            report_parts.append("\n## ⏰ Upcoming Opportunities\n")
+            report_parts.append("*No upcoming open tenders with deadlines found*")
+        
+        # Section 6: Recent Tender Examples
+        report_parts.append("\n## 📋 Recent Tender Examples\n")
+        for i, tn in enumerate(recent_notices[:5], 1):
+            report_parts.append(
+                f"{i}. **{tn['title'][:100]}{'...' if len(tn['title']) > 100 else ''}**\n"
+                f"   - Buyer: {tn['buyer']}\n"
+                f"   - Published: {tn['pub_date']}\n"
+                f"   - CPV: {tn['cpv']}\n"
+                f"   - Notice ID: `{tn['notice_id']}`\n"
+            )
+        
+        # Footer with recommendations
+        report_parts.extend([
+            "\n---\n",
+            "## 💡 How to Use This Intelligence\n",
+            "- **Target high-value categories** where this buyer is most active",
+            "- **Watch for upcoming deadlines** to submit competitive bids",
+            "- **Analyze seasonal patterns** to predict future procurement",
+            "- **Study procedure preferences** to optimize your approach",
+            "- **Track competitors** who frequently win contracts from this buyer\n",
+            f"🔗 **Get full details:** Use `get_ted_notice_details(notice_id)` for any tender",
+        ])
+        
+        result = "\n".join(report_parts)
+        logger.info(f"Generated buyer profile report ({len(result)} chars)")
+        return result
+        
+    except httpx.HTTPStatusError as e:
+        error_msg = f"Error fetching buyer data: HTTP {e.response.status_code} - {e.response.text}"
+        logger.error(error_msg)
+        return f"❌ {error_msg}\n\nPlease try again or refine your search criteria."
+    except httpx.RequestError as e:
+        error_msg = f"Connection error: {str(e)}"
+        logger.error(error_msg)
+        return f"❌ {error_msg}\n\nPlease check your internet connection and try again."
+    except Exception as e:
+        error_msg = f"Unexpected error analyzing buyer profile: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"❌ {error_msg}\n\nPlease try again or contact support if the issue persists."

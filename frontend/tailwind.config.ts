@@ -11,19 +11,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#FAFAFA',
-        primaryAccent: '#18181B',
-        brand: '#FF4017',
+        primary: '#1F2937',
+        primaryAccent: '#111827',
+        brand: '#003399',
+        euBlue: '#003399',
+        euYellow: '#FFCC00',
         background: {
-          DEFAULT: '#111113',
-          secondary: '#27272A'
+          DEFAULT: '#FFFFFF',
+          secondary: '#F9FAFB'
         },
-        secondary: '#f5f5f5',
-        border: 'rgba(var(--color-border-default))',
-        accent: '#27272A',
-        muted: '#A1A1AA',
-        destructive: '#E53935',
-        positive: '#22C55E'
+        secondary: '#374151',
+        border: '#E5E7EB',
+        accent: '#F3F4F6',
+        muted: '#6B7280',
+        destructive: '#DC2626',
+        positive: '#059669'
       },
       fontFamily: {
         geist: 'var(--font-geist-sans)',

@@ -50,18 +50,18 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
     typeof v === 'string' && (v.startsWith('http://') || v.startsWith('https://'))
 
   return (
-    <div className="flex-1 overflow-x-auto bg-background">
+    <div className="flex-1 overflow-x-auto bg-white">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr>
-            <th className="sticky top-0 z-10 bg-background px-3 py-2 text-center text-xs font-medium text-muted-foreground uppercase tracking-wide border-b w-10">
+            <th className="sticky top-0 z-10 bg-gray-50 px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase tracking-wide border-b border-gray-200 w-10">
               ★
             </th>
             {table.columns.map((col) => (
               <th
                 key={col.key}
                 onClick={() => handleSort(col.key)}
-                className="sticky top-0 z-10 bg-background px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide border-b cursor-pointer select-none whitespace-nowrap hover:bg-muted/30 transition-colors"
+                className="sticky top-0 z-10 bg-gray-50 px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wide border-b border-gray-200 cursor-pointer select-none whitespace-nowrap hover:bg-gray-100 transition-colors"
               >
                 {col.label}
                 <span className="opacity-60">{sortIndicator(col.key)}</span>
@@ -73,15 +73,15 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
           {sortedRows.map((row, ri) => (
             <tr
               key={ri}
-              className="hover:bg-muted/50 transition-colors border-b"
+              className="hover:bg-gray-50 transition-colors border-b border-gray-100"
             >
               <td className="px-3 py-2 text-center">
                 <button
                   onClick={() => toggleSavedTender(row)}
                   className={`text-base transition-colors ${
                     isSaved(row)
-                      ? 'text-yellow-400 hover:text-yellow-300'
-                      : 'text-muted-foreground/40 hover:text-yellow-400/70'
+                      ? 'text-yellow-500 hover:text-yellow-600'
+                      : 'text-gray-300 hover:text-yellow-400'
                   }`}
                   title={isSaved(row) ? 'Remove from saved' : 'Save tender'}
                 >
@@ -93,7 +93,7 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
                 return (
                   <td
                     key={col.key}
-                    className="px-3 py-2 text-sm"
+                    className="px-3 py-2 text-sm text-gray-700"
                     title={String(val ?? '')}
                   >
                     {isUrl(val) ? (
@@ -101,13 +101,13 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
                         href={val}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary hover:text-primary/80 underline truncate max-w-[200px] inline-block"
+                        className="text-blue-600 hover:text-blue-800 underline truncate max-w-[200px] inline-block"
                         title={val}
                       >
                         View ↗
                       </a>
                     ) : (
-                      <span className="truncate max-w-[200px] inline-block" title={String(val ?? '')}>
+                      <span className="truncate max-w-[200px] inline-block text-gray-700" title={String(val ?? '')}>
                         {String(val ?? '')}
                       </span>
                     )}

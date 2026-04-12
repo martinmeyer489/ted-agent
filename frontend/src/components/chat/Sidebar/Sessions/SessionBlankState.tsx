@@ -1,6 +1,5 @@
 import React from 'react'
 import { useStore } from '@/store'
-import { useQueryState } from 'nuqs'
 
 const HistoryBlankStateIcon = () => (
   <svg
@@ -87,7 +86,6 @@ const HistoryBlankStateIcon = () => (
 
 const SessionBlankState = () => {
   const { selectedEndpoint, isEndpointActive } = useStore()
-  const [agentId] = useQueryState('agent')
 
   const errorMessage = (() => {
     switch (true) {
@@ -95,8 +93,6 @@ const SessionBlankState = () => {
         return 'Endpoint is not connected. Please connect the endpoint to see the history.'
       case !selectedEndpoint:
         return 'Select an endpoint to see the history.'
-      case !agentId:
-        return 'Select an agent to see the history.'
       default:
         return 'No session records yet. Start a conversation to create one.'
     }

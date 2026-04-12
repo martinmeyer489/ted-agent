@@ -149,13 +149,15 @@ async def run_agent(
     agent_id: str, 
     message: str = Form(...),
     session_id: Optional[str] = Form(None),
-    stream: bool = Form(True)
+    stream: bool = Form(True),
+    user_profile: Optional[str] = Form(None)
 ):
     """
     Run an agent with a message.
     
     Supports both streaming and non-streaming responses.
     Accepts form data (for frontend compatibility) or JSON.
+    Includes optional user_profile parameter for personalized responses.
     """
     try:
         # Get or create session
@@ -195,6 +197,32 @@ async def run_agent(
                     run_id = str(uuid.uuid4())
                     now = int(time_module.time())
                     
+                    # Parse user profile if provided
+                    profile_context = ""
+                    if user_profile:
+                        try:
+                            profile_data = json.loads(user_profile)
+                            profile_parts = []
+                            if profile_data.get("industry"):
+                                profile_parts.append(f"Industry: {profile_data['industry']}")
+                            if profile_data.get("role"):
+                                profile_parts.append(f"Role: {profile_data['role']}")
+                            if profile_data.get("companySize"):
+                                profile_parts.append(f"Company Size: {profile_data['companySize']}")
+                            if profile_data.get("interests"):
+                                enhanced_interests = ", ".join(profile_data['interests'])
+                                profile_parts.append(f"Interests: {enhanced_interests}")
+                            if profile_parts:
+                                profile_context = "\n\n[USER PROFILE]\n" + "\n".join(profile_parts)
+                                logger.info(f"User profile context: {profile_context}")
+                        except (json.JSONDecodeError, AttributeError) as e:
+                            logger.warning(f"Failed to parse user_profile: {e}")
+                    
+                    # Append profile context to message
+                    enhanced_message = message
+                    if profile_context:
+                        enhanced_message = message + profile_context
+                    
                     # Send RunStarted event
                     yield json.dumps({
                         "event": "RunStarted",
@@ -208,7 +236,7 @@ async def run_agent(
                     seen_tool_ids = set()
                     
                     async for run_response in agent.run_stream(
-                        message=message,
+                        message=enhanced_message,
                         session_id=session_id_value,
                     ):
                         event_type = getattr(run_response, 'event', None)
@@ -310,8 +338,34 @@ async def run_agent(
         
         else:
             # Non-streaming response
+            # Parse user profile if provided
+            profile_context = ""
+            if user_profile:
+                try:
+                    profile_data = json.loads(user_profile)
+                    profile_parts = []
+                    if profile_data.get("industry"):
+                        profile_parts.append(f"Industry: {profile_data['industry']}")
+                    if profile_data.get("role"):
+                        profile_parts.append(f"Role: {profile_data['role']}")
+                    if profile_data.get("companySize"):
+                        profile_parts.append(f"Company Size: {profile_data['companySize']}")
+                    if profile_data.get("interests"):
+                        enhanced_interests = ", ".join(profile_data['interests'])
+                        profile_parts.append(f"Interests: {enhanced_interests}")
+                    if profile_parts:
+                        profile_context = "\n\n[USER PROFILE]\n" + "\n".join(profile_parts)
+                        logger.info(f"User profile context: {profile_context}")
+                except (json.JSONDecodeError, AttributeError) as e:
+                    logger.warning(f"Failed to parse user_profile: {e}")
+            
+            # Append profile context to message
+            enhanced_message = message
+            if profile_context:
+                enhanced_message = message + profile_context
+            
             response = await agent.run(
-                message=message,
+                message=enhanced_message,
                 session_id=session_id_value
             )
             

@@ -15,8 +15,6 @@ import { getJsonMarkdown } from '@/lib/utils'
 const useAIChatStreamHandler = () => {
   const setMessages = useStore((state) => state.setMessages)
   const { addMessage, focusChatInput } = useChatActions()
-  const [agentId] = useQueryState('agent')
-  const [teamId] = useQueryState('team')
   const [sessionId, setSessionId] = useQueryState('session')
   const selectedEndpoint = useStore((state) => state.selectedEndpoint)
   const authToken = useStore((state) => state.authToken)
@@ -111,7 +109,14 @@ const useAIChatStreamHandler = () => {
         formData.append('message', input)
       }
 
-      // Inject workspace table context into the message
+      // Inject user profile context
+      const userProfile = useStore.getState().userProfile
+      if (userProfile) {
+        formData.append('user_profile', JSON.stringify(userProfile))
+      }
+
+      // Inject workspace table context into the message (COMMENTED OUT - WORKSPACE REMOVED)
+      /*
       const workspaceTable = useStore.getState().workspaceTable
       if (workspaceTable) {
         const originalMessage = formData.get('message') as string
@@ -144,6 +149,7 @@ const useAIChatStreamHandler = () => {
 
         formData.set('message', context + originalMessage)
       }
+      */
 
       // Keep the original user message for display (without workspace context)
       const displayMessage =
@@ -187,23 +193,11 @@ const useAIChatStreamHandler = () => {
       try {
         const endpointUrl = constructEndpointUrl(selectedEndpoint)
 
-        let RunUrl: string | null = null
-
-        if (mode === 'team' && teamId) {
-          RunUrl = APIRoutes.TeamRun(endpointUrl, teamId)
-        } else if (mode === 'agent' && agentId) {
-          RunUrl = APIRoutes.AgentRun(endpointUrl).replace(
-            '{agent_id}',
-            agentId
-          )
-        }
-
-        if (!RunUrl) {
-          updateMessagesWithErrorState()
-          setStreamingErrorMessage('Please select an agent or team first.')
-          setIsStreaming(false)
-          return
-        }
+        // Use the single TED agent
+        const RunUrl = APIRoutes.AgentRun(endpointUrl).replace(
+          '{agent_id}',
+          'ted-agent'
+        )
 
         formData.append('stream', 'true')
         formData.append('session_id', sessionId ?? '')
@@ -489,8 +483,6 @@ const useAIChatStreamHandler = () => {
       selectedEndpoint,
       authToken,
       streamResponse,
-      agentId,
-      teamId,
       mode,
       setStreamingErrorMessage,
       setIsStreaming,

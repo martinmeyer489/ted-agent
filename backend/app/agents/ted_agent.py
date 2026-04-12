@@ -11,7 +11,13 @@ from loguru import logger
 from datetime import datetime, timedelta
 
 from app.core.config import settings
-from app.agents.tools import search_ted_tenders, get_ted_notice_details, query_ted_sparql, update_workspace_table
+from app.agents.tools import (
+    search_ted_tenders,
+    get_ted_notice_details,
+    query_ted_sparql,
+    # update_workspace_table,  # COMMENTED OUT - workspace removed
+    analyze_buyer_profile,
+)
 
 
 # In-memory conversation history store
@@ -96,22 +102,33 @@ class TEDAgent:
         self.agent = Agent(
             name="TED Tender Search Agent",
             model=model,
-            tools=[search_ted_tenders, get_ted_notice_details, update_workspace_table],  # SPARQL temporarily disabled for debugging
+            tools=[
+                search_ted_tenders,
+                get_ted_notice_details,
+                # update_workspace_table,  # COMMENTED OUT - workspace removed
+                analyze_buyer_profile,
+            ],  # SPARQL temporarily disabled for debugging
             instructions=[
                 "You are a helpful assistant specialized in finding EU public procurement opportunities.",
                 "You help users search the TED (Tenders Electronic Daily) database for tender notices.",
                 "",
                 "## CRITICAL: Tool Output Rules",
                 "⚠️ When search_ted_tenders returns results:",
-                "1. Do NOT repeat or output the markdown table — it is automatically shown in the user's workspace panel",
-                "2. Instead, provide a brief text summary (e.g., 'Found 12 software tenders in Germany. The results are now in your workspace table.')",
-                "3. You can mention highlights or patterns you notice, but do NOT duplicate the table data",
-                "4. For get_ted_notice_details results, you CAN show the full details in chat since those are not tables",
+                "1. Present the tender information in a clear, readable format",
+                "2. Provide a helpful summary highlighting key findings",
+                "3. You can format the information as tables or lists for better readability",
+                "4. For get_ted_notice_details results, show the full details in a structured way",
+                "",
+                "## User Profile Awareness:",
+                "- The user's industry, role, company size, and interests are provided in [USER PROFILE] context",
+                "- Tailor your responses and recommendations based on their profile",
+                "- Highlight tenders that match their industry and interests",
+                "- Adjust technical depth based on their role",
                 "",
                 "## Available Tools:",
                 "1. **search_ted_tenders** - Search for tenders by keywords, countries, CPV codes, and notice types",
                 "2. **get_ted_notice_details** - Get complete details for a specific notice by ID",
-                "3. **update_workspace_table** - Update the workspace table (filter rows, add columns with enriched data, re-order)",
+                "3. **analyze_buyer_profile** - Analyze a buyer's procurement activity, spending patterns, and preferences",
                 "",
                 "## Tool Selection Guide:",
                 "",
@@ -125,13 +142,12 @@ class TEDAgent:
                 "- User wants full details of a specific tender by ID",
                 "- Following up on a search result to see more information",
                 "",
-                "**Use update_workspace_table when:**",
-                "- User asks to filter, sort, or remove rows from the workspace table",
-                "- User asks to enrich the table with additional details (e.g., 'add deadlines', 'get estimated values')",
-                "- For enriching: first call get_ted_notice_details for each notice, extract new fields, then call update_workspace_table with existing + new columns and updated rows",
-                "- The table_id and current data are provided in the [WORKSPACE TABLE] context block",
+                "**Use analyze_buyer_profile when:**",
+                "- User wants intelligence on a specific buyer/contracting authority",
+                "- Market research (e.g., 'What categories does this buyer procure in?')",
+                "- Opportunity forecasting (e.g., 'What does this buyer typically buy?')",
+                "- The buyer name can be a city, organization, or contracting authority",
                 "",
-                "## Your Capabilities:",
                 "",
                 "When users ask about tenders, contracts, or procurement opportunities:",
                 "1. Extract the key search terms (e.g., 'software', 'IT services', 'construction')",

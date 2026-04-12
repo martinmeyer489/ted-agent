@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryState } from 'nuqs'
 
 import { useStore } from '@/store'
@@ -36,13 +36,7 @@ const SkeletonList: FC<SkeletonListProps> = ({ skeletonCount }) => {
 }
 
 const Sessions = () => {
-  const [agentId] = useQueryState('agent', {
-    parse: (v: string | null) => v || undefined,
-    history: 'push'
-  })
-  const [teamId] = useQueryState('team')
   const [sessionId] = useQueryState('session')
-  const [dbId] = useQueryState('db_id')
 
   const {
     selectedEndpoint,
@@ -56,9 +50,6 @@ const Sessions = () => {
   } = useStore()
 
   const [isScrolling, setIsScrolling] = useState(false)
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    null
-  )
 
   const { getSessions, getSession } = useSessionLoader()
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -85,50 +76,30 @@ const Sessions = () => {
   }, [])
 
   useEffect(() => {
-    if (hydrated && sessionId && selectedEndpoint && (agentId || teamId)) {
-      const entityType = agentId ? 'agent' : 'team'
-      getSession({ entityType, agentId, teamId, dbId }, sessionId)
+    if (hydrated && sessionId && selectedEndpoint) {
+      getSession({ entityType: mode }, sessionId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, sessionId, selectedEndpoint, agentId, teamId, dbId])
+  }, [hydrated, sessionId, selectedEndpoint])
 
   useEffect(() => {
     if (!selectedEndpoint || isEndpointLoading) return
-    if (!(agentId || teamId || dbId)) {
-      setSessionsData([])
-      return
-    }
     setSessionsData([])
     getSessions({
-      entityType: mode,
-      agentId,
-      teamId,
-      dbId
+      entityType: mode
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     selectedEndpoint,
-    agentId,
-    teamId,
     mode,
     isEndpointLoading,
-    getSessions,
-    dbId
+    getSessions
   ])
-
-  useEffect(() => {
-    if (sessionId) setSelectedSessionId(sessionId)
-  }, [sessionId])
-
-  const handleSessionClick = useCallback(
-    (id: string) => () => setSelectedSessionId(id),
-    []
-  )
 
   if (isSessionsLoading || isEndpointLoading) {
     return (
       <div className="w-full">
-        <div className="mb-2 text-xs font-medium uppercase">Sessions</div>
+        <div className="mb-2 text-xs font-medium uppercase text-gray-700">Sessions</div>
         <div className="mt-4 h-[calc(100vh-325px)] w-full overflow-y-auto">
           <SkeletonList skeletonCount={5} />
         </div>
@@ -138,7 +109,7 @@ const Sessions = () => {
 
   return (
     <div className="w-full">
-      <div className="mb-2 w-full text-xs font-medium uppercase">Sessions</div>
+      <div className="mb-2 w-full text-xs font-medium uppercase text-gray-700">Sessions</div>
       <div
         className={`h-[calc(100vh-345px)] overflow-y-auto font-geist transition-all duration-300 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar]:transition-opacity [&::-webkit-scrollbar]:duration-300 ${
           isScrolling
@@ -151,16 +122,13 @@ const Sessions = () => {
       >
         {!isEndpointActive ||
         (!isSessionsLoading &&
-          (!sessionsData || sessionsData?.length === 0)) ? (
-          <SessionBlankState />
-        ) : (
+          (!sessionsData || sessionsData?.length === 0)) ? null : (
           <div className="flex flex-col gap-y-1 pr-1">
             {sessionsData?.map((entry, idx) => (
               <SessionItem
                 key={`${entry?.session_id}-${idx}`}
-                currentSessionId={selectedSessionId}
-                isSelected={selectedSessionId === entry?.session_id}
-                onSessionClick={handleSessionClick(entry?.session_id)}
+                currentSessionId={sessionId}
+                isSelected={sessionId === entry?.session_id}
                 session_name={entry?.session_name ?? '-'}
                 session_id={entry?.session_id}
                 created_at={entry?.created_at}

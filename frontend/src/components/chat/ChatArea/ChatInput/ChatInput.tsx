@@ -5,15 +5,13 @@ import { TextArea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { useStore } from '@/store'
 import useAIChatStreamHandler from '@/hooks/useAIStreamHandler'
-import { useQueryState } from 'nuqs'
 import Icon from '@/components/ui/icon'
 
 const ChatInput = () => {
   const { chatInputRef } = useStore()
 
   const { handleStreamResponse } = useAIChatStreamHandler()
-  const [selectedAgent] = useQueryState('agent')
-  const [teamId] = useQueryState('team')
+  const isEndpointActive = useStore((state) => state.isEndpointActive)
   const [inputMessage, setInputMessage] = useState('')
   const isStreaming = useStore((state) => state.isStreaming)
   const handleSubmit = async () => {
@@ -36,7 +34,7 @@ const ChatInput = () => {
   return (
     <div className="relative mx-auto mb-1 flex w-full max-w-2xl items-end justify-center gap-x-2 font-geist">
       <TextArea
-        placeholder={'Ask anything'}
+        placeholder={'Ask about EU tenders...'}
         value={inputMessage}
         onChange={(e) => setInputMessage(e.target.value)}
         onKeyDown={(e) => {
@@ -50,19 +48,17 @@ const ChatInput = () => {
             handleSubmit()
           }
         }}
-        className="w-full border border-accent bg-primaryAccent px-4 text-sm text-primary focus:border-accent"
-        disabled={!(selectedAgent || teamId)}
+        className="w-full border border-gray-300 bg-white px-4 text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        disabled={!isEndpointActive}
         ref={chatInputRef}
       />
       <Button
         onClick={handleSubmit}
-        disabled={
-          !(selectedAgent || teamId) || !inputMessage.trim() || isStreaming
-        }
+        disabled={!isEndpointActive || !inputMessage.trim() || isStreaming}
         size="icon"
-        className="rounded-xl bg-primary p-5 text-primaryAccent"
+        className="rounded-xl bg-blue-600 p-5 text-white hover:bg-blue-700"
       >
-        <Icon type="send" color="primaryAccent" />
+        <Icon type="send" color="white" />
       </Button>
     </div>
   )

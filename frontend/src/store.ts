@@ -67,6 +67,27 @@ interface Store {
   toggleSavedTender: (row: TableRow) => void
   removeSavedTender: (index: number) => void
   clearSavedTenders: () => void
+  // Saved buyers
+  savedBuyers: TableRow[]
+  toggleSavedBuyer: (row: TableRow) => void
+  removeSavedBuyer: (index: number) => void
+  clearSavedBuyers: () => void
+  // User location
+  userLocation: { country: string; city: string } | null
+  setUserLocation: (location: { country: string; city: string } | null) => void
+  // User profile
+  userProfile: {
+    industry: string
+    role: string
+    companySize: string
+    interests: string[]
+  } | null
+  setUserProfile: (profile: {
+    industry: string
+    role: string
+    companySize: string
+    interests: string[]
+  } | null) => void
 }
 
 export const useStore = create<Store>()(
@@ -143,7 +164,32 @@ export const useStore = create<Store>()(
         set((state) => ({
           savedTenders: state.savedTenders.filter((_, i) => i !== index)
         })),
-      clearSavedTenders: () => set(() => ({ savedTenders: [] }))
+      clearSavedTenders: () => set(() => ({ savedTenders: [] })),
+      // Saved buyers
+      savedBuyers: [],
+      toggleSavedBuyer: (row) =>
+        set((state) => {
+          const key = JSON.stringify(row)
+          const exists = state.savedBuyers.some(
+            (b) => JSON.stringify(b) === key
+          )
+          return {
+            savedBuyers: exists
+              ? state.savedBuyers.filter((b) => JSON.stringify(b) !== key)
+              : [...state.savedBuyers, row]
+          }
+        }),
+      removeSavedBuyer: (index) =>
+        set((state) => ({
+          savedBuyers: state.savedBuyers.filter((_, i) => i !== index)
+        })),
+      clearSavedBuyers: () => set(() => ({ savedBuyers: [] })),
+      // User location
+      userLocation: null,
+      setUserLocation: (userLocation) => set(() => ({ userLocation })),
+      // User profile
+      userProfile: null,
+      setUserProfile: (userProfile) => set(() => ({ userProfile }))
     }),
     {
       name: 'endpoint-storage',
@@ -153,7 +199,9 @@ export const useStore = create<Store>()(
         workspaceTable: state.workspaceTable,
         isWorkspaceOpen: state.isWorkspaceOpen,
         workspaceWidth: state.workspaceWidth,
-        savedTenders: state.savedTenders
+        savedTenders: state.savedTenders,
+        userLocation: state.userLocation,
+        userProfile: state.userProfile
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated?.()

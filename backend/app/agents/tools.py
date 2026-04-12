@@ -131,38 +131,39 @@ def search_ted_tenders(
             "notice-identifier",
         ]
         
-        # Call TED API synchronously using httpx
+        # Call TED API using httpx (force IPv4 - TED API IPv6 is unreliable)
         logger.info(f"Calling TED API with query: '{expert_query}'")
         try:
-            with httpx.Client(timeout=60.0) as client:
-                payload = {
-                    "query": expert_query,
-                    "fields": fields,
-                    "page": 1,
-                    "limit": max_results,
-                    "scope": "ACTIVE",
-                    "checkQuerySyntax": False,
-                    "paginationMode": "PAGE_NUMBER",
-                    "onlyLatestVersions": False,
-                }
-                logger.debug(f"TED API payload: {payload}")
-                
+            payload = {
+                "query": expert_query,
+                "fields": fields,
+                "page": 1,
+                "limit": max_results,
+                "scope": "ACTIVE",
+                "checkQuerySyntax": False,
+                "paginationMode": "PAGE_NUMBER",
+                "onlyLatestVersions": False,
+            }
+            logger.debug(f"TED API payload: {payload}")
+            
+            transport = httpx.HTTPTransport(local_address="0.0.0.0")
+            with httpx.Client(transport=transport, timeout=60.0) as client:
                 response = client.post(
                     f"{settings.ted_api_url}/notices/search",
                     json=payload,
                     headers={
                         "accept": "*/*",
                         "Content-Type": "application/json",
-                    }
+                    },
                 )
-                logger.info(f"TED API responded with status: {response.status_code}")
-                response.raise_for_status()
-                result = response.json()
-                logger.info(f"TED API returned {len(result.get('notices', []))} notices")
-                
-                # Debug: Log first notice structure
-                if result.get('notices') and len(result['notices']) > 0:
-                    logger.debug(f"First notice structure: {result['notices'][0]}")
+            logger.info(f"TED API responded with status: {response.status_code}")
+            response.raise_for_status()
+            result = response.json()
+            logger.info(f"TED API returned {len(result.get('notices', []))} notices")
+            
+            # Debug: Log first notice structure
+            if result.get('notices') and len(result['notices']) > 0:
+                logger.debug(f"First notice structure: {result['notices'][0]}")
         except httpx.HTTPStatusError as e:
             error_msg = f"Error searching TED API: HTTP {e.response.status_code} - {e.response.text}"
             logger.error(error_msg)
@@ -440,68 +441,69 @@ def get_ted_notice_details(notice_id: str) -> str:
         html_url = f"https://ted.europa.eu/en/notice/{clean_id}/html"
         logger.info(f"Fetching HTML from: {html_url}")
         
-        # Fetch the notice HTML
-        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+        # Fetch the notice HTML (force IPv4)
+        transport = httpx.HTTPTransport(local_address="0.0.0.0")
+        with httpx.Client(transport=transport, timeout=30.0, follow_redirects=True) as client:
             response = client.get(html_url)
-            response.raise_for_status()
+        response.raise_for_status()
+        
+        # Parse HTML with BeautifulSoup for better control
+        soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Parse HTML with BeautifulSoup for better control
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Remove script, style, and navigation elements
-            for element in soup(['script', 'style', 'nav', 'header', 'footer']):
-                element.decompose()
-            
-            # Remove any elements with specific classes that are navigation/UI
-            for element in soup.find_all(class_=['navigation', 'menu', 'breadcrumb', 'footer']):
-                element.decompose()
-            
-            # Get the main content area (usually the notice content)
-            main_content = soup.find('main') or soup.find('body') or soup
-            
-            # Convert to markdown
-            markdown_content = md(
-                str(main_content),
-                heading_style="ATX",  # Use # headers
-                bullets="-",  # Use - for bullet points
-                strip=['a'],  # Keep links but simplify
-            )
-            
-            # Clean up the markdown
-            # Remove excessive blank lines
-            lines = markdown_content.split('\n')
-            cleaned_lines = []
-            prev_blank = False
-            for line in lines:
-                is_blank = not line.strip()
-                if is_blank and prev_blank:
-                    continue
-                cleaned_lines.append(line)
-                prev_blank = is_blank
-            
-            markdown_content = '\n'.join(cleaned_lines)
-            
-            # Add header with notice information
-            result_parts = [
-                f"# 📄 TED Notice: {clean_id}\n",
-                f"**Direct Link:** https://ted.europa.eu/udl?uri=TED:NOTICE:{clean_id}",
-                f"**Download HTML:** {html_url}\n",
-                f"---\n",
-                markdown_content,
-                f"\n---\n",
-                f"📌 **Notice ID:** {clean_id}",
-                f"🔗 **View original:** https://ted.europa.eu/udl?uri=TED:NOTICE:{clean_id}",
-            ]
-            
-            result = '\n'.join(result_parts)
-            
-            # Limit output if too long (keep first part for context)
-            max_length = 15000
-            if len(result) > max_length:
-                result = result[:max_length] + f"\n\n... (Content truncated. Full notice contains {len(result)} characters)\n\n🔗 **View complete notice at:** https://ted.europa.eu/udl?uri=TED:NOTICE:{clean_id}"
-            
-            logger.info(f"Successfully converted notice {clean_id} to markdown, returning {len(result)} characters")
-            return result
+        # Remove script, style, and navigation elements
+        for element in soup(['script', 'style', 'nav', 'header', 'footer']):
+            element.decompose()
+        
+        # Remove any elements with specific classes that are navigation/UI
+        for element in soup.find_all(class_=['navigation', 'menu', 'breadcrumb', 'footer']):
+            element.decompose()
+        
+        # Get the main content area (usually the notice content)
+        main_content = soup.find('main') or soup.find('body') or soup
+        
+        # Convert to markdown
+        markdown_content = md(
+            str(main_content),
+            heading_style="ATX",  # Use # headers
+            bullets="-",  # Use - for bullet points
+            strip=['a'],  # Keep links but simplify
+        )
+        
+        # Clean up the markdown
+        # Remove excessive blank lines
+        lines = markdown_content.split('\n')
+        cleaned_lines = []
+        prev_blank = False
+        for line in lines:
+            is_blank = not line.strip()
+            if is_blank and prev_blank:
+                continue
+            cleaned_lines.append(line)
+            prev_blank = is_blank
+        
+        markdown_content = '\n'.join(cleaned_lines)
+        
+        # Add header with notice information
+        result_parts = [
+            f"# 📄 TED Notice: {clean_id}\n",
+            f"**Direct Link:** https://ted.europa.eu/udl?uri=TED:NOTICE:{clean_id}",
+            f"**Download HTML:** {html_url}\n",
+            f"---\n",
+            markdown_content,
+            f"\n---\n",
+            f"📌 **Notice ID:** {clean_id}",
+            f"🔗 **View original:** https://ted.europa.eu/udl?uri=TED:NOTICE:{clean_id}",
+        ]
+        
+        result = '\n'.join(result_parts)
+        
+        # Limit output if too long (keep first part for context)
+        max_length = 15000
+        if len(result) > max_length:
+            result = result[:max_length] + f"\n\n... (Content truncated. Full notice contains {len(result)} characters)\n\n🔗 **View complete notice at:** https://ted.europa.eu/udl?uri=TED:NOTICE:{clean_id}"
+        
+        logger.info(f"Successfully converted notice {clean_id} to markdown, returning {len(result)} characters")
+        return result
             
     except httpx.HTTPStatusError as e:
         error_msg = f"Could not fetch TED notice {notice_id}: HTTP {e.response.status_code}"
@@ -624,73 +626,74 @@ def query_ted_sparql(
         
         accept_header = accept_headers.get(output_format.lower(), accept_headers["table"])
         
-        # Execute SPARQL query using GET (standard SPARQL protocol)
-        with httpx.Client(timeout=120.0, follow_redirects=True) as client:
+        # Execute SPARQL query using GET (force IPv4)
+        transport = httpx.HTTPTransport(local_address="0.0.0.0")
+        with httpx.Client(transport=transport, timeout=120.0, follow_redirects=True) as client:
             response = client.get(
                 sparql_endpoint,
                 params={"query": sparql_query},
                 headers={
                     "Accept": accept_header,
-                }
+                },
             )
+        
+        logger.info(f"SPARQL endpoint responded with status: {response.status_code}")
+        response.raise_for_status()
+        
+        # Handle different output formats
+        if output_format.lower() == "json":
+            result = response.json()
+            logger.info(f"SPARQL query returned {len(result.get('results', {}).get('bindings', []))} results")
+            return f"```json\n{response.text}\n```"
+        
+        elif output_format.lower() == "csv":
+            logger.info(f"SPARQL query returned CSV data ({len(response.text)} chars)")
+            return f"```csv\n{response.text}\n```"
+        
+        else:  # table format (default)
+            result = response.json()
+            bindings = result.get("results", {}).get("bindings", [])
             
-            logger.info(f"SPARQL endpoint responded with status: {response.status_code}")
-            response.raise_for_status()
+            if not bindings:
+                return "✅ Query executed successfully but returned no results.\n\n💡 **Possible reasons:**\n- Date filters may be too restrictive\n- The query syntax may need adjustment\n- Try a broader date range or remove filters\n\n**Alternative**: Try the REST API with `search_ted_tenders` for keyword-based searches."
             
-            # Handle different output formats
-            if output_format.lower() == "json":
-                result = response.json()
-                logger.info(f"SPARQL query returned {len(result.get('results', {}).get('bindings', []))} results")
-                return f"```json\n{response.text}\n```"
+            # Extract column headers from first result
+            headers = list(bindings[0].keys())
             
-            elif output_format.lower() == "csv":
-                logger.info(f"SPARQL query returned CSV data ({len(response.text)} chars)")
-                return f"```csv\n{response.text}\n```"
+            # Build markdown table
+            table_parts = [
+                f"# 📊 SPARQL Query Results\n",
+                f"**Total rows:** {len(bindings)}\n",
+                "---\n",
+            ]
             
-            else:  # table format (default)
-                result = response.json()
-                bindings = result.get("results", {}).get("bindings", [])
+            # Table header
+            header_row = "| " + " | ".join(headers) + " |"
+            separator = "|" + "|".join(["---" for _ in headers]) + "|"
+            table_parts.extend([header_row, separator])
+            
+            # Table rows (limit to 100 for readability)
+            max_rows = 100
+            for i, binding in enumerate(bindings[:max_rows]):
+                row_values = []
+                for header in headers:
+                    value = binding.get(header, {}).get("value", "N/A")
+                    # Truncate long values
+                    if len(str(value)) > 100:
+                        value = str(value)[:97] + "..."
+                    row_values.append(str(value))
                 
-                if not bindings:
-                    return "✅ Query executed successfully but returned no results.\n\n💡 **Possible reasons:**\n- Date filters may be too restrictive\n- The query syntax may need adjustment\n- Try a broader date range or remove filters\n\n**Alternative**: Try the REST API with `search_ted_tenders` for keyword-based searches."
-                
-                # Extract column headers from first result
-                headers = list(bindings[0].keys())
-                
-                # Build markdown table
-                table_parts = [
-                    f"# 📊 SPARQL Query Results\n",
-                    f"**Total rows:** {len(bindings)}\n",
-                    "---\n",
-                ]
-                
-                # Table header
-                header_row = "| " + " | ".join(headers) + " |"
-                separator = "|" + "|".join(["---" for _ in headers]) + "|"
-                table_parts.extend([header_row, separator])
-                
-                # Table rows (limit to 100 for readability)
-                max_rows = 100
-                for i, binding in enumerate(bindings[:max_rows]):
-                    row_values = []
-                    for header in headers:
-                        value = binding.get(header, {}).get("value", "N/A")
-                        # Truncate long values
-                        if len(str(value)) > 100:
-                            value = str(value)[:97] + "..."
-                        row_values.append(str(value))
-                    
-                    row = "| " + " | ".join(row_values) + " |"
-                    table_parts.append(row)
-                
-                if len(bindings) > max_rows:
-                    table_parts.append(f"\n⚠️ *Showing first {max_rows} of {len(bindings)} results*")
-                
-                table_parts.append("\n✅ Query completed successfully")
-                
-                result_text = "\n".join(table_parts)
-                logger.info(f"Formatted SPARQL results as table ({len(result_text)} chars)")
-                return result_text
+                row = "| " + " | ".join(row_values) + " |"
+                table_parts.append(row)
+            
+            if len(bindings) > max_rows:
+                table_parts.append(f"\n⚠️ *Showing first {max_rows} of {len(bindings)} results*")
+            
+            table_parts.append("\n✅ Query completed successfully")
+            
+            result_text = "\n".join(table_parts)
+            logger.info(f"Formatted SPARQL results as table ({len(result_text)} chars)")
+            return result_text
                 
     except httpx.HTTPStatusError as e:
         error_msg = f"SPARQL query failed: HTTP {e.response.status_code}"

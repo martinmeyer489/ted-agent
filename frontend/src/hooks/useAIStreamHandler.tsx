@@ -6,6 +6,7 @@ import useChatActions from '@/hooks/useChatActions'
 import { useStore } from '../store'
 import { RunEvent, RunResponseContent, type RunResponse } from '@/types/os'
 import { constructEndpointUrl } from '@/lib/constructEndpointUrl'
+import { WorkspaceTable } from '@/types/workspace'
 import useAIResponseStream from './useAIResponseStream'
 import { ToolCall } from '@/types/os'
 import { useQueryState } from 'nuqs'
@@ -255,9 +256,9 @@ const useAIChatStreamHandler = () => {
               if (
                 (chunk.event === RunEvent.ToolCallCompleted ||
                   chunk.event === RunEvent.TeamToolCallCompleted) &&
-                (chunk as any).table
+                (chunk as unknown as { table?: WorkspaceTable }).table
               ) {
-                const table = (chunk as any).table
+                const table = (chunk as unknown as { table: WorkspaceTable }).table
                 setWorkspaceTable(table)
                 setIsWorkspaceOpen(true)
               }

@@ -7,10 +7,4 @@ services:
       - .env
     restart: unless-stopped
 
-  frontend:
-    build:
-      context: ./frontend/agent-ui
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
+

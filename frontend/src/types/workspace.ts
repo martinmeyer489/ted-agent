@@ -7,5 +7,5 @@ export interface WorkspaceTable {
   id: string
   title: string
   columns: TableColumn[]
-  rows: Record<string, any>[]
+  rows: Record<string, string | number | boolean | null | undefined>[]
 }

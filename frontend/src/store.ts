@@ -62,6 +62,11 @@ interface Store {
   setIsWorkspaceOpen: (open: boolean) => void
   workspaceWidth: number
   setWorkspaceWidth: (w: number) => void
+  // Saved tenders
+  savedTenders: Record<string, any>[]
+  toggleSavedTender: (row: Record<string, any>) => void
+  removeSavedTender: (index: number) => void
+  clearSavedTenders: () => void
 }
 
 export const useStore = create<Store>()(
@@ -119,7 +124,26 @@ export const useStore = create<Store>()(
       isWorkspaceOpen: false,
       setIsWorkspaceOpen: (isWorkspaceOpen) => set(() => ({ isWorkspaceOpen })),
       workspaceWidth: 40,
-      setWorkspaceWidth: (workspaceWidth) => set(() => ({ workspaceWidth }))
+      setWorkspaceWidth: (workspaceWidth) => set(() => ({ workspaceWidth })),
+      // Saved tenders
+      savedTenders: [],
+      toggleSavedTender: (row) =>
+        set((state) => {
+          const key = JSON.stringify(row)
+          const exists = state.savedTenders.some(
+            (t) => JSON.stringify(t) === key
+          )
+          return {
+            savedTenders: exists
+              ? state.savedTenders.filter((t) => JSON.stringify(t) !== key)
+              : [...state.savedTenders, row]
+          }
+        }),
+      removeSavedTender: (index) =>
+        set((state) => ({
+          savedTenders: state.savedTenders.filter((_, i) => i !== index)
+        })),
+      clearSavedTenders: () => set(() => ({ savedTenders: [] }))
     }),
     {
       name: 'endpoint-storage',
@@ -128,7 +152,8 @@ export const useStore = create<Store>()(
         selectedEndpoint: state.selectedEndpoint,
         workspaceTable: state.workspaceTable,
         isWorkspaceOpen: state.isWorkspaceOpen,
-        workspaceWidth: state.workspaceWidth
+        workspaceWidth: state.workspaceWidth,
+        savedTenders: state.savedTenders
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated?.()

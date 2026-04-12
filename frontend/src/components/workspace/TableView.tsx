@@ -1,13 +1,22 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { WorkspaceTable } from '@/types/workspace'
+import { useStore } from '@/store'
 
 type SortDir = 'asc' | 'desc' | null
 
 export default function TableView({ table }: { table: WorkspaceTable }) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
+  const savedTenders = useStore((s) => s.savedTenders)
+  const toggleSavedTender = useStore((s) => s.toggleSavedTender)
+
+  const isSaved = useCallback(
+    (row: Record<string, any>) =>
+      savedTenders.some((t) => JSON.stringify(t) === JSON.stringify(row)),
+    [savedTenders]
+  )
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -45,6 +54,9 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
       <table className="w-full text-sm border-collapse">
         <thead className="sticky top-0 z-10">
           <tr>
+            <th className="bg-[#1a1a22] px-2 py-2.5 text-center text-xs font-semibold text-blue-300/80 uppercase tracking-wider border-b border-gray-600/50 w-10">
+              ★
+            </th>
             {table.columns.map((col) => (
               <th
                 key={col.key}
@@ -63,6 +75,19 @@ export default function TableView({ table }: { table: WorkspaceTable }) {
               key={ri}
               className="hover:bg-blue-900/10 transition-colors border-b border-gray-800/40 even:bg-white/[0.015]"
             >
+              <td className="px-2 py-2 text-center">
+                <button
+                  onClick={() => toggleSavedTender(row)}
+                  className={`text-lg transition-colors ${
+                    isSaved(row)
+                      ? 'text-yellow-400 hover:text-yellow-300'
+                      : 'text-gray-600 hover:text-yellow-400/70'
+                  }`}
+                  title={isSaved(row) ? 'Remove from saved' : 'Save tender'}
+                >
+                  {isSaved(row) ? '★' : '☆'}
+                </button>
+              </td>
               {table.columns.map((col) => {
                 const val = row[col.key]
                 return (

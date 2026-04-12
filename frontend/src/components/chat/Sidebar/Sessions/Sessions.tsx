@@ -61,7 +61,7 @@ const Sessions = () => {
   )
 
   const { getSessions, getSession } = useSessionLoader()
-  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleScroll = () => {
     setIsScrolling(true)

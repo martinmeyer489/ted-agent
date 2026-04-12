@@ -2,11 +2,11 @@
 import { ChatArea } from '@/components/chat/ChatArea'
 import WorkspacePanel from '@/components/workspace/WorkspacePanel'
 import ResizeDivider from '@/components/workspace/ResizeDivider'
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useStore } from '@/store'
 import { useQueryState } from 'nuqs'
 
-export default function Home() {
+function HomeContent() {
   const setMode = useStore((state) => state.setMode)
   const [, setAgentId] = useQueryState('agent')
   
@@ -22,6 +22,14 @@ export default function Home() {
       <ResizeDivider />
       <ChatArea />
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   )
 }
 

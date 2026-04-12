@@ -1,7 +1,6 @@
 'use client'
 
 import { useStore } from '@/store'
-import Icon from '@/components/ui/icon'
 import { useRouter } from 'next/navigation'
 
 export default function SavedItemsButton() {

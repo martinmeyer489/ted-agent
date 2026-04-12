@@ -483,7 +483,6 @@ const useAIChatStreamHandler = () => {
       selectedEndpoint,
       authToken,
       streamResponse,
-      mode,
       setStreamingErrorMessage,
       setIsStreaming,
       focusChatInput,

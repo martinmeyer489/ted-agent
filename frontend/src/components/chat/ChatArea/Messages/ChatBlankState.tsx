@@ -60,6 +60,7 @@ const ChatBlankState = () => {
     const selected = categories[Math.floor(Math.random() * categories.length)]
     setRandomCategory(selected)
     setExampleQueries(getExampleQueries(userLocation, selected))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run once on mount
 
   // Update queries when geolocation location changes

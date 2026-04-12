@@ -27,13 +27,7 @@ const NewChatButton = ({
   </Button>
 )
 
-const Sidebar = ({
-  hasEnvToken,
-  envToken
-}: {
-  hasEnvToken?: boolean
-  envToken?: string
-}) => {
+const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { clearChat, focusChatInput, initialize } = useChatActions()
   const {

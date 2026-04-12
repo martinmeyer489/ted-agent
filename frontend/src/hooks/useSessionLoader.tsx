@@ -64,8 +64,6 @@ const useSessionLoader = () => {
     ) => {
       if (!selectedEndpoint || !sessionId || !entityType) return
 
-      // Use the single TED agent
-      const selectedId = 'ted-agent'
       const dbId = 'default'
 
       try {

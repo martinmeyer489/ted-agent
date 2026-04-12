@@ -265,7 +265,7 @@ export default function SavedPage() {
               <p className="font-medium text-blue-900 mb-1">Local Browser Storage</p>
               <p className="text-blue-700">
                 Your saved items are stored locally in your browser. They will persist across sessions,
-                but won't sync to other devices or browsers. To backup your data, use the Export button.
+                but won&apos;t sync to other devices or browsers. To backup your data, use the Export button.
               </p>
             </div>
           </div>

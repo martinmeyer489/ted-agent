@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 
 export interface LocationData {
   country: string
@@ -95,18 +95,19 @@ export function useGeolocation() {
           error: 'Could not determine your location'
         }))
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Geolocation error:', error)
       
       let errorMessage = 'Failed to get location'
       let permission: LocationPermission = 'denied'
       
-      if (error.code === 1) {
+      const geoError = error as GeolocationPositionError
+      if (geoError.code === 1) {
         errorMessage = 'Location permission denied'
         permission = 'denied'
-      } else if (error.code === 2) {
+      } else if (geoError.code === 2) {
         errorMessage = 'Location unavailable'
-      } else if (error.code === 3) {
+      } else if (geoError.code === 3) {
         errorMessage = 'Location request timeout'
       }
 

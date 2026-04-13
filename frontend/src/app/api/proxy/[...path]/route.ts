@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://91.99.141.177:8000'
+const API_KEY = process.env.BACKEND_API_KEY || ''
 
 export async function GET(request: NextRequest) {
   const path = request.nextUrl.pathname.replace('/api/proxy', '')
@@ -9,6 +10,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const headers: HeadersInit = {}
+    if (API_KEY) headers['x-api-key'] = API_KEY
     const auth = request.headers.get('authorization')
     if (auth) headers['Authorization'] = auth
 
@@ -31,8 +33,9 @@ export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type') || ''
 
-    // Forward auth header if present
+    // Forward auth + API key headers
     const headers: Record<string, string> = {}
+    if (API_KEY) headers['x-api-key'] = API_KEY
     const auth = request.headers.get('authorization')
     if (auth) headers['Authorization'] = auth
 
@@ -79,6 +82,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const headers: HeadersInit = {}
+    if (API_KEY) headers['x-api-key'] = API_KEY
     const auth = request.headers.get('authorization')
     if (auth) headers['Authorization'] = auth
 

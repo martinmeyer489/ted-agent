@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     environment: str = Field(default="development", alias="ENVIRONMENT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     cors_origins: str = Field(default="http://localhost:3000", alias="CORS_ORIGINS")
+    api_key: str = Field(default="", alias="API_KEY")
     
     # TED API
     ted_api_url: str = Field(..., alias="TED_API_URL")

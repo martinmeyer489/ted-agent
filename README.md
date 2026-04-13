@@ -64,8 +64,6 @@ ted-bot/
 - [Backend README](backend/README.md) - Backend setup and API details
 - [Frontend README](frontend/README.md) - Frontend setup and components
 - [Architecture](docs/architecture.md) - System design
-- [Database Schema](docs/database-schema.md) - Data models
-- [Workspace Panel](docs/workspace-panel-spec.md) - Table feature spec
 
 ## Environment Variables
 
@@ -78,9 +76,7 @@ OLLAMA_API_URL=http://localhost:11434  # or Ollama Cloud URL
 OLLAMA_API_KEY=your-key  # if using Ollama Cloud
 OLLAMA_CHAT_MODEL=llama3.1
 
-# Optional (for persistence)
-SUPABASE_URL=your-supabase-url
-SUPABASE_KEY=your-supabase-key
+
 ```
 
 ## License
@@ -114,7 +110,6 @@ Try these in the chat interface:
 
 ## API Endpoints
 
-The backend provides two API interfaces:
 
 ### AgentOS API (for agent-ui)
 
@@ -132,5 +127,4 @@ See the [Deployment Guide](docs/deployment.md) for setup instructions.
 
 ## License
 
-TBD
-# ted-agent
+

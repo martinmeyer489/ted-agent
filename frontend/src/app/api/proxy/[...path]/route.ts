@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const runtime = 'edge'
+
 const BACKEND_URL = process.env.BACKEND_URL || 'http://91.99.141.177:8000'
 const API_KEY = process.env.BACKEND_API_KEY || ''
 

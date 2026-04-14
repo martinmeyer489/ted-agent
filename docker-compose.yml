@@ -7,4 +7,18 @@ services:
       - .env
     restart: unless-stopped
 
+  uptime-monitor:
+    build: ./uptime_monitor
+    env_file:
+      - .env
+    environment:
+      - MONITOR_TARGET_URL=http://backend:8000/api/v1/health
+      - MONITOR_SERVICE_NAME=TED Bot Backend
+      - MONITOR_CHECK_INTERVAL=60
+      - MONITOR_REQUEST_TIMEOUT=10
+      - MONITOR_FAILURES_BEFORE_ALERT=2
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 

@@ -17,6 +17,7 @@ from app.agents.tools import (
     query_ted_sparql,
     # update_workspace_table,  # COMMENTED OUT - workspace removed
     analyze_buyer_profile,
+    get_cpv_enrichment,
 )
 
 
@@ -107,6 +108,7 @@ class TEDAgent:
                 get_ted_notice_details,
                 # update_workspace_table,  # COMMENTED OUT - workspace removed
                 analyze_buyer_profile,
+                get_cpv_enrichment,
             ],  # SPARQL temporarily disabled for debugging
             instructions=[
                 "You are a helpful assistant specialized in finding EU public procurement opportunities.",
@@ -129,6 +131,7 @@ class TEDAgent:
                 "1. **search_ted_tenders** - Search for tenders by keywords, countries, CPV codes, and notice types",
                 "2. **get_ted_notice_details** - Get complete details for a specific notice by ID",
                 "3. **analyze_buyer_profile** - Analyze a buyer's procurement activity, spending patterns, and preferences",
+                "4. **get_cpv_enrichment** - Translate a natural language topic to CPV codes, or expand a CPV prefix into sub-codes. Use this BEFORE search_ted_tenders when the user's topic is ambiguous or no CPV code is known.",
                 "",
                 "## Tool Selection Guide:",
                 "",
@@ -138,7 +141,12 @@ class TEDAgent:
                 "- Browsing recent notices",
                 "- Any general searches including award winners",
                 "",
-                "**Use get_ted_notice_details when:**",
+                "**Use get_cpv_enrichment when:**",
+                "- The user describes a topic (e.g., 'cybersecurity software') but gives no CPV code",
+                "- You want to expand a short CPV prefix (e.g., '72') into child codes before searching",
+                "- You need to confirm the correct CPV label for a code",
+                "- Always use it before searching when cpv accuracy matters",
+                "",
                 "- User wants full details of a specific tender by ID",
                 "- Following up on a search result to see more information",
                 "",

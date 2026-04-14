@@ -4,7 +4,7 @@ Tools for Agno agents.
 Provides TED API search functionality as agent tools.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 import httpx
 import json
 import uuid
@@ -1148,3 +1148,396 @@ def analyze_buyer_profile(
         error_msg = f"Unexpected error analyzing buyer profile: {str(e)}"
         logger.error(error_msg, exc_info=True)
         return f"❌ {error_msg}\n\nPlease try again or contact support if the issue persists."
+
+
+# ==============================================================================
+# CPV Enrichment Tool
+# ==============================================================================
+
+# CPV division labels (2-digit prefix → human-readable label).
+# Used as a fallback when the live SPARQL endpoint is unavailable.
+_CPV_STATIC_DIVISIONS: Dict[str, str] = {
+    "03": "Agricultural, farming, fishing, forestry and related products",
+    "09": "Petroleum products, fuel, electricity and other sources of energy",
+    "14": "Mining, basic metals and related products",
+    "15": "Food, beverages, tobacco and related products",
+    "16": "Farm machinery, equipment and supplies",
+    "18": "Clothing, footwear, luggage articles and accessories",
+    "19": "Leather and textile fabrics, plastic and rubber materials",
+    "22": "Printed matter and related products",
+    "24": "Chemical products",
+    "30": "Office and computing machinery, equipment and supplies",
+    "31": "Electrical machinery, apparatus, equipment and consumables",
+    "32": "Radio, television, communication, telecommunication and related equipment",
+    "33": "Medical equipments, pharmaceuticals and personal care products",
+    "34": "Transport equipment and auxiliary products to transportation",
+    "35": "Security, fire-fighting, police and defence equipment",
+    "37": "Musical instruments, sport goods, games, toys, handicraft, art materials",
+    "38": "Laboratory, optical and precision equipments",
+    "39": "Furniture (incl. office furniture), furnishings, domestic appliances",
+    "41": "Collected and purified water",
+    "42": "Industrial machinery",
+    "43": "Machinery for mining, quarrying, construction equipment",
+    "44": "Construction structures and materials; auxiliary products to construction",
+    "45": "Construction work",
+    "48": "Software package and information systems",
+    "50": "Repair and maintenance services",
+    "51": "Installation services",
+    "55": "Hotel, restaurant and retail trade services",
+    "60": "Transport services",
+    "63": "Supporting and auxiliary transport services; travel agencies services",
+    "64": "Postal and telecommunications services",
+    "65": "Public utilities",
+    "66": "Financial and insurance services",
+    "70": "Real estate services",
+    "71": "Architectural, construction, engineering and inspection services",
+    "72": "IT services: consulting, software development, Internet and support",
+    "73": "Research and development services and related consultancy services",
+    "75": "Administration, defence and social security services",
+    "76": "Services related to the oil and gas industry",
+    "77": "Agricultural, forestry, horticultural, aquacultural and apicultural services",
+    "79": "Business services: law, marketing, consulting, recruitment, printing and security",
+    "80": "Education and training services",
+    "85": "Health and social work services",
+    "90": "Sewage, refuse, cleaning and environmental services",
+    "92": "Recreational, cultural and sporting services",
+    "98": "Other community, social and personal services",
+}
+
+# Keyword phrases → CPV division prefixes (most relevant first).
+# Used as a static fallback for natural-language term lookup.
+_KEYWORD_CPV_MAP: List[Tuple[List[str], List[str]]] = [
+    (["software", "saas", "application", "platform", "app", "digital solution"], ["48", "72"]),
+    (["it service", "ict service", "information technology", "tech support", "helpdesk", "it support"], ["72", "48"]),
+    (["cybersecurity", "cyber security", "information security", "infosec", "siem", "soc",
+      "firewall", "penetration test", "vulnerability assessment", "endpoint protection"], ["72"]),
+    (["cloud service", "cloud hosting", "iaas", "paas", "saas", "datacenter", "data center"], ["72", "48"]),
+    (["consulting", "advisory", "consultancy", "management consulting"], ["72", "79", "73"]),
+    (["network", "networking", "telecommunication", "telecom", "broadband", "internet provider"], ["32", "64", "72"]),
+    (["database", "data processing", "analytics", "business intelligence", "data warehouse", "big data"], ["72", "48"]),
+    (["website", "web development", "web design", "e-government", "portal"], ["72", "48"]),
+    (["construction", "building work", "civil engineering", "renovation", "refurbishment"], ["45"]),
+    (["architecture", "architectural service", "structural engineer", "survey", "inspection"], ["71"]),
+    (["road", "highway", "pavement", "asphalt", "bridge", "tunnel", "motorway"], ["45"]),
+    (["medical device", "medical equipment", "hospital equipment", "pharmaceutical", "drug", "medicine"], ["33"]),
+    (["health service", "healthcare", "social care", "nursing", "care service", "hospital"], ["85"]),
+    (["transport service", "logistics", "freight", "shipping", "delivery"], ["60", "63"]),
+    (["education", "training", "learning", "e-learning", "vocational training"], ["80"]),
+    (["research", "r&d", "research and development", "innovation"], ["73"]),
+    (["cleaning", "waste management", "refuse", "environmental service", "sewage", "recycling"], ["90"]),
+    (["security service", "guard", "surveillance", "security personnel"], ["79"]),
+    (["security equipment", "fire fighting", "defence equipment", "police equipment"], ["35"]),
+    (["food", "catering", "meal", "beverage", "drink", "canteen"], ["15", "55"]),
+    (["office supply", "furniture", "stationery", "office equipment"], ["39", "30"]),
+    (["printing", "printed matter", "document", "publication", "book"], ["22"]),
+    (["insurance", "financial service", "banking", "pension"], ["66"]),
+    (["real estate", "property", "facility management", "building management"], ["70"]),
+    (["energy", "electricity", "natural gas", "solar", "wind energy", "renewable", "fuel"], ["09", "65"]),
+    (["water supply", "water service", "utility", "sewage treatment"], ["41", "65"]),
+    (["audit", "accounting", "bookkeeping", "legal service", "law firm", "legal advice"], ["79"]),
+    (["marketing", "advertising", "communication service", "public relation"], ["79"]),
+    (["recruitment", "hr service", "human resource", "staffing", "temporary work"], ["79"]),
+    (["electrical installation", "electrical work", "wiring", "electrical equipment"], ["31", "45"]),
+    (["repair", "maintenance service", "servicing"], ["50"]),
+    (["installation service"], ["51"]),
+    (["agricultural", "farming", "horticulture", "forestry", "veterinary"], ["77", "03"]),
+    (["chemical", "laboratory chemical"], ["24"]),
+]
+
+
+def _query_cpv_sparql(sparql_query: str, timeout: float = 30.0) -> List[Dict]:
+    """Execute a SPARQL query against the EU Publications Office endpoint.
+
+    Returns the raw bindings list from the SPARQL JSON results format.
+    Raises on HTTP or connection errors so callers can fall back gracefully.
+    """
+    sparql_endpoint = "https://publications.europa.eu/webapi/rdf/sparql"
+    transport = httpx.HTTPTransport(local_address="0.0.0.0")
+    with httpx.Client(transport=transport, timeout=timeout, follow_redirects=True) as client:
+        response = client.get(
+            sparql_endpoint,
+            params={"query": sparql_query},
+            headers={"Accept": "application/sparql-results+json"},
+        )
+    response.raise_for_status()
+    return response.json().get("results", {}).get("bindings", [])
+
+
+def _static_search_term(term: str) -> List[Dict[str, str]]:
+    """Match a natural-language term against the static CPV keyword index."""
+    term_lower = term.lower()
+    seen: set = set()
+    results: List[Dict[str, str]] = []
+    for keywords, prefixes in _KEYWORD_CPV_MAP:
+        if any(kw in term_lower for kw in keywords):
+            for prefix in prefixes:
+                if prefix not in seen:
+                    seen.add(prefix)
+                    label = _CPV_STATIC_DIVISIONS.get(prefix, "Unknown category")
+                    results.append({"code": f"{prefix}000000", "label": label})
+    return results
+
+
+def _static_lookup_code(cpv_code: str, include_subtree: bool) -> List[Dict[str, str]]:
+    """Look up CPV division(s) from the static index for a given code or prefix."""
+    clean = cpv_code.strip().replace("*", "")
+    prefix = clean.rstrip("0") or clean[:2]
+    prefix = prefix[:2]  # at most the 2-digit division prefix
+
+    results: List[Dict[str, str]] = []
+    for div, label in sorted(_CPV_STATIC_DIVISIONS.items()):
+        if include_subtree:
+            if div.startswith(prefix):
+                results.append({"code": f"{div}000000", "label": label})
+        else:
+            if div == prefix:
+                results.append({"code": f"{div}000000", "label": label})
+    return results
+
+
+@tool
+def get_cpv_enrichment(
+    search_term: Optional[str] = None,
+    cpv_code: Optional[str] = None,
+    include_subtree: bool = False,
+    language: str = "EN",
+) -> str:
+    """
+    Translate natural language search terms to CPV codes, or look up / expand CPV codes.
+
+    Use this tool BEFORE calling search_ted_tenders when you need accurate CPV codes
+    instead of guessing. It queries the EU Publications Office CPV vocabulary via
+    their SPARQL endpoint and falls back to an embedded static index if needed.
+
+    **When to use this tool:**
+    - You want to find CPV codes for a topic (e.g., "cybersecurity software", "road construction")
+    - You have a partial code and want its label or its full set of sub-codes
+    - The user mentions a topic but no CPV code — enrich before searching
+
+    Args:
+        search_term: Natural language description of what you're looking for
+            (e.g., "cybersecurity software", "road construction", "medical imaging").
+            Returns matching CPV codes and labels sorted by code.
+        cpv_code: A CPV code or prefix to look up or expand
+            (e.g., "72000000" for an exact label lookup, "72" to list the whole
+            IT division). When include_subtree=False, returns the label for the
+            given code. When include_subtree=True, returns all codes under that prefix.
+        include_subtree: If True (requires cpv_code), expand to all descendant codes
+            sharing that prefix — e.g. cpv_code="72", include_subtree=True returns
+            every 72xxxxxx code. Default: False.
+        language: BCP-47 language tag for labels (default: "EN").
+            Other EU official languages are supported (e.g., "DE", "FR", "ES").
+
+    Returns:
+        A formatted markdown string listing CPV codes with their official labels.
+        The codes can be passed directly to search_ted_tenders via cpv_codes=[...].
+
+    Example usage:
+        - get_cpv_enrichment(search_term="cybersecurity software")
+          → Returns CPV codes for IT security services / software
+        - get_cpv_enrichment(cpv_code="72000000")
+          → Returns label: "IT services: consulting, software development..."
+        - get_cpv_enrichment(cpv_code="72", include_subtree=True)
+          → Returns all IT-related CPV sub-codes under the 72* division
+        - get_cpv_enrichment(search_term="road construction", include_subtree=True)
+          → Finds matching CPV divisions and expands each to child codes
+    """
+    try:
+        logger.info(
+            f"Tool called: get_cpv_enrichment("
+            f"search_term={search_term!r}, cpv_code={cpv_code!r}, "
+            f"include_subtree={include_subtree}, language={language!r})"
+        )
+
+        if not search_term and not cpv_code:
+            return "❌ Please provide either `search_term` or `cpv_code`."
+
+        lang_tag = language.upper()[:2]
+        results: List[Dict[str, str]] = []
+        source = "SPARQL"
+
+        # ------------------------------------------------------------------ #
+        # Mode A: natural-language term → matching CPV codes                  #
+        # ------------------------------------------------------------------ #
+        if search_term:
+            safe_term = search_term.replace('"', "").replace("\\", "")
+            sparql = (
+                "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>\n"
+                "SELECT DISTINCT ?code ?label WHERE {\n"
+                "  ?concept skos:inScheme <http://publications.europa.eu/resource/authority/cpv> ;\n"
+                "           skos:notation ?code ;\n"
+                "           skos:prefLabel ?label .\n"
+                f'  FILTER(LANG(?label) = "{lang_tag}")\n'
+                f'  FILTER(CONTAINS(LCASE(STR(?label)), LCASE("{safe_term}")))\n'
+                "}\n"
+                "ORDER BY ?code\n"
+                "LIMIT 30"
+            )
+            try:
+                bindings = _query_cpv_sparql(sparql)
+                results = [
+                    {
+                        "code": b.get("code", {}).get("value", ""),
+                        "label": b.get("label", {}).get("value", ""),
+                    }
+                    for b in bindings
+                    if b.get("code", {}).get("value")
+                ]
+                logger.info(f"SPARQL returned {len(results)} CPV match(es) for term '{search_term}'")
+            except Exception as sparql_err:
+                logger.warning(f"SPARQL CPV search failed ({sparql_err}); using static index")
+                source = "static index (SPARQL unavailable)"
+                results = _static_search_term(search_term)
+
+            # SPARQL succeeded but returned nothing — enrich with static index
+            if not results and source == "SPARQL":
+                logger.info("SPARQL returned 0 results; enriching with static keyword index")
+                source = "SPARQL + static index"
+                results = _static_search_term(search_term)
+
+            # If include_subtree requested, expand each matched division
+            if include_subtree and results:
+                expanded: List[Dict[str, str]] = []
+                seen_codes: set = set()
+                for r in results:
+                    prefix = r["code"].rstrip("0") or r["code"][:2]
+                    prefix = prefix[:2]
+                    sparql_sub = (
+                        "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>\n"
+                        "SELECT DISTINCT ?code ?label WHERE {\n"
+                        "  ?concept skos:inScheme <http://publications.europa.eu/resource/authority/cpv> ;\n"
+                        "           skos:notation ?code ;\n"
+                        "           skos:prefLabel ?label .\n"
+                        f'  FILTER(LANG(?label) = "{lang_tag}")\n'
+                        f'  FILTER(STRSTARTS(STR(?code), "{prefix}"))\n'
+                        "}\n"
+                        "ORDER BY ?code\n"
+                        "LIMIT 100"
+                    )
+                    try:
+                        sub_bindings = _query_cpv_sparql(sparql_sub)
+                        for b in sub_bindings:
+                            code = b.get("code", {}).get("value", "")
+                            label = b.get("label", {}).get("value", "")
+                            if code and code not in seen_codes:
+                                seen_codes.add(code)
+                                expanded.append({"code": code, "label": label})
+                    except Exception as sub_err:
+                        logger.warning(f"Subtree SPARQL failed for prefix '{prefix}' ({sub_err}); skipping expansion")
+                        if r["code"] not in seen_codes:
+                            seen_codes.add(r["code"])
+                            expanded.append(r)
+                results = expanded
+
+        # ------------------------------------------------------------------ #
+        # Mode B: CPV code → label or subtree expansion                       #
+        # ------------------------------------------------------------------ #
+        if cpv_code:
+            clean_code = cpv_code.strip().replace("*", "")
+
+            if include_subtree:
+                prefix = clean_code.rstrip("0") or clean_code[:2]
+                sparql = (
+                    "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>\n"
+                    "SELECT DISTINCT ?code ?label WHERE {\n"
+                    "  ?concept skos:inScheme <http://publications.europa.eu/resource/authority/cpv> ;\n"
+                    "           skos:notation ?code ;\n"
+                    "           skos:prefLabel ?label .\n"
+                    f'  FILTER(LANG(?label) = "{lang_tag}")\n'
+                    f'  FILTER(STRSTARTS(STR(?code), "{prefix}"))\n'
+                    "}\n"
+                    "ORDER BY ?code\n"
+                    "LIMIT 200"
+                )
+            else:
+                padded = clean_code.ljust(8, "0")[:8]
+                sparql = (
+                    "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>\n"
+                    "SELECT DISTINCT ?code ?label WHERE {\n"
+                    "  ?concept skos:inScheme <http://publications.europa.eu/resource/authority/cpv> ;\n"
+                    "           skos:notation ?code ;\n"
+                    "           skos:prefLabel ?label .\n"
+                    f'  FILTER(LANG(?label) = "{lang_tag}")\n'
+                    f'  FILTER(STR(?code) = "{padded}")\n'
+                    "}\n"
+                    "LIMIT 5"
+                )
+
+            try:
+                bindings = _query_cpv_sparql(sparql)
+                code_results = [
+                    {
+                        "code": b.get("code", {}).get("value", ""),
+                        "label": b.get("label", {}).get("value", ""),
+                    }
+                    for b in bindings
+                    if b.get("code", {}).get("value")
+                ]
+                logger.info(f"SPARQL returned {len(code_results)} CPV entry/entries for code '{cpv_code}'")
+                results.extend(code_results)
+            except Exception as sparql_err:
+                logger.warning(f"SPARQL CPV code lookup failed ({sparql_err}); using static index")
+                source = "static index (SPARQL unavailable)"
+                results.extend(_static_lookup_code(clean_code, include_subtree))
+
+            if not results and source == "SPARQL":
+                logger.info("SPARQL returned 0 results for code lookup; using static index")
+                source = "SPARQL + static index"
+                results.extend(_static_lookup_code(clean_code, include_subtree))
+
+        # ------------------------------------------------------------------ #
+        # Format output                                                        #
+        # ------------------------------------------------------------------ #
+        # Deduplicate preserving order
+        seen_codes: set = set()
+        unique: List[Dict[str, str]] = []
+        for r in results:
+            if r["code"] and r["code"] not in seen_codes:
+                seen_codes.add(r["code"])
+                unique.append(r)
+
+        if not unique:
+            return (
+                f"⚠️ No CPV codes found for: **{search_term or cpv_code}**\n\n"
+                "**Suggestions:**\n"
+                "- Try a different or broader search term\n"
+                "- Use a 2-digit CPV division prefix (e.g., '72' for IT, '45' for construction)\n"
+                "- Browse the full vocabulary at https://op.europa.eu/en/web/eu-vocabularies/cpv"
+            )
+
+        header = [
+            "# 🏷️ CPV Code Enrichment\n",
+        ]
+        if search_term:
+            header.append(f"**Search term:** {search_term}")
+        if cpv_code:
+            header.append(f"**CPV code/prefix:** {cpv_code}")
+        if include_subtree:
+            header.append("**Mode:** Subtree expansion")
+        header.append(f"**Data source:** {source}")
+        header.append(f"**Results:** {len(unique)} CPV code(s)\n")
+        header.append("---\n")
+
+        table = ["| CPV Code | Label |", "|----------|-------|"]
+        for r in unique:
+            label_escaped = r["label"].replace("|", "\\|")
+            table.append(f"| `{r['code']}` | {label_escaped} |")
+
+        code_list = ", ".join(f'"{r["code"]}"' for r in unique[:10])
+        footer = (
+            "\n---\n"
+            "💡 **Use in search:** Pass these codes to `search_ted_tenders` as:\n"
+            f"```\ncpv_codes=[{code_list}]\n```"
+        )
+
+        result_text = "\n".join(header + table) + footer
+        logger.info(f"get_cpv_enrichment returning {len(unique)} code(s) ({len(result_text)} chars)")
+        return result_text
+
+    except Exception as e:
+        error_msg = f"Unexpected error in CPV enrichment: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return (
+            f"❌ {error_msg}\n\n"
+            "Please try again or browse the vocabulary at https://op.europa.eu/en/web/eu-vocabularies/cpv."
+        )

@@ -103,7 +103,7 @@ const ChatBlankState = () => {
   }
 
   return (
-    <div className="flex h-full items-center justify-center px-4">
+    <div className="flex flex-1 items-center justify-center px-4">
       <div className="text-center max-w-2xl">
 
         {/* AI Disclaimer */}

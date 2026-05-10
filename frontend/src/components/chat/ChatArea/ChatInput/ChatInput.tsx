@@ -10,7 +10,7 @@ import Icon from '@/components/ui/icon'
 const ChatInput = () => {
   const { chatInputRef } = useStore()
 
-  const { handleStreamResponse } = useAIChatStreamHandler()
+  const { handleStreamResponse, stopStreaming } = useAIChatStreamHandler()
   const isEndpointActive = useStore((state) => state.isEndpointActive)
   const [inputMessage, setInputMessage] = useState('')
   const isStreaming = useStore((state) => state.isStreaming)
@@ -52,14 +52,26 @@ const ChatInput = () => {
         disabled={!isEndpointActive}
         ref={chatInputRef}
       />
-      <Button
-        onClick={handleSubmit}
-        disabled={!isEndpointActive || !inputMessage.trim() || isStreaming}
-        size="icon"
-        className="rounded-xl bg-blue-600 p-5 text-white hover:bg-blue-700"
-      >
-        <Icon type="send" color="white" />
-      </Button>
+      {isStreaming ? (
+        <Button
+          onClick={stopStreaming}
+          size="icon"
+          variant="outline"
+          className="rounded-xl border-gray-300 p-5 text-gray-700 hover:bg-gray-100"
+          title="Stop generation"
+        >
+          <Icon type="stop" color="primary" />
+        </Button>
+      ) : (
+        <Button
+          onClick={handleSubmit}
+          disabled={!isEndpointActive || !inputMessage.trim() || isStreaming}
+          size="icon"
+          className="rounded-xl bg-blue-600 p-5 text-white hover:bg-blue-700"
+        >
+          <Icon type="send" color="white" />
+        </Button>
+      )}
     </div>
   )
 }

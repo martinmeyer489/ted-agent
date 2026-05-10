@@ -22,6 +22,7 @@ interface MessageListProps {
 interface MessageWrapperProps {
   message: ChatMessage
   isLastMessage: boolean
+  previousUserMessage?: string
 }
 
 interface ReferenceProps {
@@ -59,7 +60,7 @@ const References: FC<ReferenceProps> = ({ references }) => (
   </div>
 )
 
-const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
+const AgentMessageWrapper = ({ message, previousUserMessage }: MessageWrapperProps) => {
   return (
     <div className="flex flex-col gap-y-9">
       {message.extra_data?.reasoning_steps &&
@@ -121,7 +122,7 @@ const AgentMessageWrapper = ({ message }: MessageWrapperProps) => {
           </div>
         </div>
       )}
-      <AgentMessage message={message} />
+      <AgentMessage message={message} previousUserMessage={previousUserMessage} />
     </div>
   )
 }
@@ -163,11 +164,14 @@ const Messages = ({ messages }: MessageListProps) => {
         const isLastMessage = index === messages.length - 1
 
         if (message.role === 'agent') {
+          const prevMsg = index > 0 ? messages[index - 1] : undefined
+          const previousUserMessage = prevMsg?.role === 'user' ? prevMsg.content : undefined
           return (
             <AgentMessageWrapper
               key={key}
               message={message}
               isLastMessage={isLastMessage}
+              previousUserMessage={previousUserMessage}
             />
           )
         }

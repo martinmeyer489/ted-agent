@@ -12,13 +12,16 @@ import { ToolCall } from '@/types/os'
 import { useQueryState } from 'nuqs'
 import { getJsonMarkdown } from '@/lib/utils'
 
+// Module-level ref so that any hook instance can cancel an in-progress stream
+// regardless of which component started it (e.g., ChatBlankState vs ChatInput).
+let globalAbortController: AbortController | null = null
+
 const useAIChatStreamHandler = () => {
   const setMessages = useStore((state) => state.setMessages)
   const { addMessage, focusChatInput } = useChatActions()
   const [sessionId, setSessionId] = useQueryState('session')
   const selectedEndpoint = useStore((state) => state.selectedEndpoint)
   const authToken = useStore((state) => state.authToken)
-  const mode = useStore((state) => state.mode)
   const setStreamingErrorMessage = useStore(
     (state) => state.setStreamingErrorMessage
   )
@@ -191,6 +194,8 @@ const useAIChatStreamHandler = () => {
       let lastContent = ''
       let newSessionId = sessionId
       try {
+        const controller = new AbortController()
+        globalAbortController = controller
         const endpointUrl = constructEndpointUrl(selectedEndpoint)
 
         // Use the single TED agent
@@ -212,6 +217,7 @@ const useAIChatStreamHandler = () => {
           apiUrl: RunUrl,
           headers,
           requestBody: formData,
+          signal: controller.signal,
           onChunk: (chunk: RunResponse) => {
             if (
               chunk.event === RunEvent.RunStarted ||
@@ -495,7 +501,12 @@ const useAIChatStreamHandler = () => {
     ]
   )
 
-  return { handleStreamResponse }
+  const stopStreaming = useCallback(() => {
+    globalAbortController?.abort()
+    globalAbortController = null
+  }, [])
+
+  return { handleStreamResponse, stopStreaming }
 }
 
 export default useAIChatStreamHandler

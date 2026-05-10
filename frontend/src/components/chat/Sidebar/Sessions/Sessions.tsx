@@ -45,7 +45,8 @@ const Sessions = () => {
     hydrated,
     sessionsData,
     setSessionsData,
-    isSessionsLoading
+    isSessionsLoading,
+    isStreaming
   } = useStore()
 
   const [isScrolling, setIsScrolling] = useState(false)
@@ -75,11 +76,13 @@ const Sessions = () => {
   }, [])
 
   useEffect(() => {
-    if (hydrated && sessionId && selectedEndpoint) {
+    // Skip loading while streaming — session data is incomplete mid-run and
+    // would overwrite the current user message with empty content.
+    if (hydrated && sessionId && selectedEndpoint && !isStreaming) {
       getSession({ entityType: mode }, sessionId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, sessionId, selectedEndpoint])
+  }, [hydrated, sessionId, selectedEndpoint, isStreaming])
 
   useEffect(() => {
     if (!selectedEndpoint || isEndpointLoading) return

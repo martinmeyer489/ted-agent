@@ -7,6 +7,7 @@ import { StickToBottom } from 'use-stick-to-bottom'
 
 const MessageArea = () => {
   const { messages } = useStore()
+  const hasMessages = messages.length > 0
 
   return (
     <StickToBottom
@@ -14,8 +15,12 @@ const MessageArea = () => {
       resize="smooth"
       initial="smooth"
     >
-      <StickToBottom.Content className="flex min-h-full flex-col justify-center">
-        <div className="mx-auto w-full max-w-2xl space-y-9 px-4 pb-4">
+      <StickToBottom.Content className="flex min-h-full flex-col">
+        <div
+          className={`mx-auto w-full max-w-2xl px-4 pb-4 ${
+            hasMessages ? 'space-y-9 pt-4' : 'flex flex-1 flex-col'
+          }`}
+        >
           <Messages messages={messages} />
         </div>
       </StickToBottom.Content>

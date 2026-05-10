@@ -7,24 +7,37 @@ import Images from './Multimedia/Images'
 import Audios from './Multimedia/Audios'
 import { memo } from 'react'
 import AgentThinkingLoader from './AgentThinkingLoader'
+import useAIChatStreamHandler from '@/hooks/useAIStreamHandler'
 
 interface MessageProps {
   message: ChatMessage
+  previousUserMessage?: string
 }
 
-const AgentMessage = ({ message }: MessageProps) => {
-  const { streamingErrorMessage } = useStore()
+const AgentMessage = ({ message, previousUserMessage }: MessageProps) => {
+  const { streamingErrorMessage, isStreaming } = useStore()
+  const { handleStreamResponse } = useAIChatStreamHandler()
   let messageContent
   if (message.streamingError) {
     messageContent = (
-      <p className="text-destructive">
-        Oops! Something went wrong while streaming.{' '}
-        {streamingErrorMessage ? (
-          <>{streamingErrorMessage}</>
-        ) : (
-          'Please try refreshing the page or try again later.'
+      <div className="flex flex-col gap-3">
+        <p className="text-destructive text-sm">
+          Oops! Something went wrong while streaming.{' '}
+          {streamingErrorMessage ? (
+            <>{streamingErrorMessage}</>
+          ) : (
+            'Please try again.'
+          )}
+        </p>
+        {previousUserMessage && !isStreaming && (
+          <button
+            onClick={() => handleStreamResponse(previousUserMessage)}
+            className="self-start rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            ↺ Retry
+          </button>
         )}
-      </p>
+      </div>
     )
   } else if (message.content) {
     messageContent = (
